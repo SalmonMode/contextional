@@ -1,6 +1,7 @@
 import unittest
 import inspect
 
+
 class Helper(unittest.TestCase):
     """A singleton used to keep object persistent during test execution.
 
@@ -61,21 +62,21 @@ class GroupManager(object):
 
 
 class GroupTestCase(unittest.TestCase):
-
     """The base test class for a Group.
 
-    All Groups will have to create a class that represents the tests for that
+    All Groups will have to create a class that represents each test for that
     Group. This should be the class those classes inherit from in order to
     ensure they all perform the necessary steps requied of them.
     """
 
     _helper = helper
-    _setups = []
     _group = None
     _is_last = False
+    _description = ""
+    _test_description = ""
 
     def __str__(self):
-        return str(getattr(self, self._testMethodName))
+        return self._description
 
     def __getattr__(self, attr):
         return getattr(self._helper, attr)
@@ -93,13 +94,36 @@ class GroupTestCase(unittest.TestCase):
             delattr(self._helper, attr)
 
     @classmethod
+    def _set_test_description(cls, start_level, setup_ancestry):
+        indent = "  "
+        end_level = start_level + len(setup_ancestry)
+        for level in range(start_level, end_level):
+            indentation = (indent * level)
+            level_description = setup_ancestry[level]._description
+            cls._description += "{}{}\n".format(
+                indentation,
+                level_description,
+            )
+        cls._description += "{}{}".format(
+            (indent * end_level),
+            cls._test_description,
+        )
+
+    def _set_test_failure_description(self):
+        ancestry = ":".join(reversed(self._group._ancestry))
+        self._description = "{} ({})".format(self._test_description, ancestry)
+
+    @classmethod
     def setUpClass(cls):
-        if len(cls._current_level) == 0:
+        start_level = cls._helper._current_level
+        if start_level == 0:
             # tell the last GroupTestCase that will run that it needs to run
             # all the remaining teardowns
             cls._group._last_test_class._is_last = True
-        diff = cls._group._level - cls._helper._current_level
-        setup_ancestry = list(reversed(cls._group._ancestry))[diff:]
+        setup_ancestry = list(reversed(cls._group._ancestry))[start_level:]
+
+        cls._set_test_description(start_level, setup_ancestry)
+
         for group in setup_ancestry:
             for setup in group._setups:
                 args, _, _, _ = inspect.getargspec(setup)
@@ -107,9 +131,10 @@ class GroupTestCase(unittest.TestCase):
                     setup(cls)
                 else:
                     setup()
-        cls._helper._current_level = cls._group._level
+        cls._helper._current_level = cls._group._level + 1
 
     def setUp(self):
+        self._set_test_failure_description()
         for setup in self._group._test_setups:
             args, _, _, _ = inspect.getargspec(setup)
             if args:
@@ -128,7 +153,7 @@ class GroupTestCase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         teardown_ancestry = list(reversed(cls._group._ancestry))
-        stop_level = 0 if cls._is_last else cls._group._level_to_teardown_to
+        stop_level = 0 if cls._is_last else cls._group._teardown_level
         teardown_ancestry = teardown_ancestry[stop_level:]
         for group in teardown_ancestry:
             for teardown in teardown_ancestry:
@@ -138,6 +163,13 @@ class GroupTestCase(unittest.TestCase):
                 else:
                     teardown()
         cls._helper._current_level = stop_level
+
+    def runTest(self):
+        args, _, _, _ = inspect.getargspec(self._func)
+        if args:
+            self._func(self)
+        else:
+            self._func()
 
 
 class GroupAncestry(object):
@@ -158,7 +190,6 @@ class GroupAncestry(object):
 
         [C, B, A]
     """
-
 
     def __init__(self):
         pass
@@ -188,7 +219,7 @@ class Group(object):
         self._test_setups = []
         self._test_teardowns = []
         self._children = []
-        self._level_to_teardown_to = self._level - 1
+        self._teardown_level = self._level
 
     def _build_test_cases(self, mod):
         """Build the test cases for this Group.
