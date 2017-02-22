@@ -222,8 +222,8 @@ class Group(object):
                     with it.having("C"):
                         # do something
 
-        Group A would be the parent of Group B, and Group B would be the parent of
-        Group C. So the ancestry would look like this:
+        Group A would be the parent of Group B, and Group B would be the parent
+        of Group C. So the ancestry would look like this:
 
             [C, B, A]
         """
