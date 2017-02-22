@@ -13,7 +13,7 @@ class Helper(unittest.TestCase):
     """
 
     def __init__(self):
-        self._current_level = 0
+        self._level_stack = []
 
     def runTest(self):
         pass
@@ -94,18 +94,17 @@ class GroupTestCase(unittest.TestCase):
             delattr(self._helper, attr)
 
     @classmethod
-    def _set_test_description(cls, start_level, setup_ancestry):
+    def _set_test_description(cls, setup_ancestry):
         indent = "  "
-        end_level = start_level + len(setup_ancestry)
-        for level in range(start_level, end_level):
-            indentation = (indent * level)
-            level_description = setup_ancestry[level]._description
+        for group in setup_ancestry:
+            indentation = (indent * group._level)
+            level_description = group._description
             cls._description += "{}{}\n".format(
                 indentation,
                 level_description,
             )
         cls._description += "{}{}".format(
-            (indent * end_level),
+            (indent * (cls._group._level + 1)),
             cls._test_description,
         )
 
@@ -115,14 +114,32 @@ class GroupTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        start_level = cls._helper._current_level
-        if start_level == 0:
-            # tell the last GroupTestCase that will run that it needs to run
-            # all the remaining teardowns
-            cls._group._last_test_class._is_last = True
-        setup_ancestry = list(reversed(cls._group._ancestry))[start_level:]
+        stack_comp = zip(
+            cls._helper._level_stack,
+            list(reversed(cls._group._ancestry)),
+        )
+        branching_point = 0
+        for i, level in enumerate(stack_comp):
+            if level[0] == level[1]:
+                continue
+            else:
+                branching_point = i
 
-        cls._set_test_description(start_level, setup_ancestry)
+        teardown_stack = list(reversed(
+            cls._helper._level_stack[branching_point:],
+        ))
+        for group in teardown_stack:
+            for teardown in group._teardowns:
+                args, _, _, _ = inspect.getargspec(teardown)
+                if args:
+                    teardown(cls)
+                else:
+                    teardown()
+            cls._helper._level_stack.remove(group)
+
+        setup_ancestry = list(reversed(cls._group._ancestry))[branching_point:]
+
+        cls._set_test_description(setup_ancestry)
 
         for group in setup_ancestry:
             for setup in group._setups:
@@ -131,7 +148,7 @@ class GroupTestCase(unittest.TestCase):
                     setup(cls)
                 else:
                     setup()
-        cls._helper._current_level = cls._group._level + 1
+            cls._helper._level_stack.append(group)
 
     def setUp(self):
         self._set_test_failure_description()
@@ -152,9 +169,8 @@ class GroupTestCase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        teardown_ancestry = list(reversed(cls._group._ancestry))
-        stop_level = 0 if cls._is_last else cls._group._teardown_level
-        teardown_ancestry = teardown_ancestry[stop_level:]
+        teardown_level = 0 - cls._group._teardown_level._level
+        teardown_ancestry = cls._group._ancestry[:teardown_level]
         for group in teardown_ancestry:
             for teardown in teardown_ancestry:
                 args, _, _, _ = inspect.getargspec(teardown)
@@ -162,7 +178,7 @@ class GroupTestCase(unittest.TestCase):
                     teardown(cls)
                 else:
                     teardown()
-        cls._helper._current_level = stop_level
+            cls._helper._level_stack.remove(group)
 
     def runTest(self):
         args, _, _, _ = inspect.getargspec(self._func)
@@ -207,19 +223,26 @@ class Group(object):
     """A group of tests, with common fixtures and description"""
 
     _ancestry = GroupAncestry()
-    _level = 0
 
     def __init__(self, description, parent=None):
         self.description = description
-        self.parent = parent
-        self._level = 0 if parent is None else parent._level + 1
+        self._parent = parent
         self._cases = []
         self._setups = []
         self._teardowns = []
         self._test_setups = []
         self._test_teardowns = []
         self._children = []
-        self._teardown_level = self._level
+        self._teardown_level = self
+
+    @property
+    def _level(self):
+        level = 0
+        parent = self._parent
+        while parent is not None:
+            level += 1
+            parent = parent._parent
+        return level
 
     def _build_test_cases(self, mod):
         """Build the test cases for this Group.
