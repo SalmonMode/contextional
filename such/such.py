@@ -188,41 +188,8 @@ class GroupTestCase(unittest.TestCase):
             self._func()
 
 
-class GroupAncestry(object):
-    """The ancestry of a specific Group from child to ancestor.
-
-    GroupAncestry is a descriptor of the Group class, which can be used to
-    easily access the ancestry (the parent Groups) of that Group instance.
-
-    If groups are declared like this:
-
-        with such.A("A") as it:
-            with it.having("B"):
-                with it.having("C"):
-                    # do something
-
-    Group A would be the parent of Group B, and Group B would be the parent of
-    Group C. So the ancestry would look like this:
-
-        [C, B, A]
-    """
-
-    def __init__(self):
-        pass
-
-    def __get__(self, instance, owner):
-        self._ancestry = []
-        group = instance
-        while group:
-            self._ancestry.append(group)
-            group = getattr(group, "parent", None)
-        return self
-
-
 class Group(object):
     """A group of tests, with common fixtures and description"""
-
-    _ancestry = GroupAncestry()
 
     def __init__(self, description, parent=None):
         self.description = description
@@ -243,6 +210,29 @@ class Group(object):
             level += 1
             parent = parent._parent
         return level
+
+    @property
+    def _ancestry(self):
+        """The ancestry of a specific Group from child to ancestor.
+
+        If groups are declared like this:
+
+            with such.A("A") as it:
+                with it.having("B"):
+                    with it.having("C"):
+                        # do something
+
+        Group A would be the parent of Group B, and Group B would be the parent of
+        Group C. So the ancestry would look like this:
+
+            [C, B, A]
+        """
+        ancestry = []
+        group = self
+        while group is not None:
+            ancestry.append(group)
+            group = getattr(group, "_parent", None)
+        return ancestry
 
     def _build_test_cases(self, mod):
         """Build the test cases for this Group.
