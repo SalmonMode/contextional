@@ -1,5 +1,6 @@
 import unittest
 import inspect
+from random import getrandbits
 
 
 class Helper(unittest.TestCase):
@@ -14,6 +15,13 @@ class Helper(unittest.TestCase):
 
     def __init__(self):
         self._level_stack = []
+        self._root_groups = {}
+
+    def _get_next_test_for_root_group(self, root_hash):
+        try:
+            return self._root_groups[root_hash].pop(0)
+        except IndexError:
+            raise IndexError("more test classes than test cases")
 
     def runTest(self):
         pass
@@ -70,7 +78,7 @@ class GroupTestCase(object):
     """
 
     _helper = helper
-    _group = None
+    _root_group_hash = None
     _description = ""
 
     def __str__(self):
@@ -112,6 +120,12 @@ class GroupTestCase(object):
 
     @classmethod
     def setUpClass(cls):
+        test_details = cls._helper._get_next_test_for_root_group(
+            cls._root_group_hash,
+        )
+        cls._group = test_details["group"]
+        cls._func = cls._group._cases[test_details["test_index"]]
+        cls._teardown_level = test_details["teardown_level"]
         stack_comp = zip(
             cls._helper._level_stack,
             list(reversed(cls._group._ancestry)),
@@ -167,16 +181,17 @@ class GroupTestCase(object):
 
     @classmethod
     def tearDownClass(cls):
-        teardown_level = 0 - cls._group._teardown_level._level
-        teardown_ancestry = cls._group._ancestry[:teardown_level]
-        for group in teardown_ancestry:
-            for teardown in teardown_ancestry:
-                args, _, _, _ = inspect.getargspec(teardown)
-                if args:
-                    teardown(cls)
-                else:
-                    teardown()
-            cls._helper._level_stack.remove(group)
+        if cls._teardown_level is not None:
+            stop_index = cls._group._ancestry.index(cls._teardown_level) + 1
+            teardown_ancestry = cls._group._ancestry[:stop_index]
+            for group in teardown_ancestry:
+                for teardown in teardown_ancestry:
+                    args, _, _, _ = inspect.getargspec(teardown)
+                    if args:
+                        teardown(cls)
+                    else:
+                        teardown()
+                cls._helper._level_stack.remove(group)
 
     def runTest(self):
         args, _, _, _ = inspect.getargspec(self._func)
@@ -233,6 +248,10 @@ class Group(object):
             group = getattr(group, "_parent", None)
         return ancestry
 
+    @property
+    def _root_group(self):
+        return self._ancestry[-1]
+
     def _build_test_cases(self, mod):
         """Build the test cases for this Group.
 
@@ -245,37 +264,35 @@ class Group(object):
         branches, then it's considered useless, and nothing will happen with
         it, even if it has setups or teardowns.
         """
+        root_hash = hash(self._root_group)
+        start_test_count = len(self._helper._root_groups[root_hash])
         if self._cases:
             # build test cases
-            setup_ancestry = list(reversed(self._ancestry))
-            root_group_hash = hash(setup_ancestry[0])
-
-            group_index_path = ""
-            for group in setup_ancestry[1:]:
-                group_index_path += str(group._parent._children.index(group))
-            case_count_width = len(str(len(self._cases) - 1))
-            test_class_name = "Collection{}_GroupPath{}0_Test{{:0>{}}}".format(
-                root_group_hash,
-                group_index_path,
-                case_count_width,
-            )
+            test_class_name = "Collection{}_{{}}".format(root_hash)
             bases = [
                 GroupTestCase,
                 unittest.TestCase,
             ]
-            for i, case_func in enumerate(self._cases):
-                attrs = {
-                    "_group": self,
-                    "_func": case_func,
+            for i in range(len(self._cases)):
+                new_case_details = {
+                    "group": self,
+                    "case_index": i,
+                    "teardown_level": None,
                 }
-                case_name = test_class_name.format(i)
-                self._last_test_case = type(case_name, bases, attrs)
-                self._last_test_case.__module__ = mod['__name__']
-                mod[self._last_test_case.__name__] = self._last_test_case
+                self._helper._root_groups[root_hash].append(
+                    new_case_details,
+                )
+                attrs = {
+                    "_root_group_hash": root_hash,
+                }
+                case_name = test_class_name.format(getrandbits(128))
+                _test = type(case_name, bases, attrs)
+                _test.__module__ = mod['__name__']
+                mod[_test.__name__] = _test
 
         for child in self._children:
-            self._last_test_case = child._build_test_cases(mod)
+            child._build_test_cases(mod)
 
-        self._last_test_case._group._teardown_level = self
-
-        return self._last_test_case
+        end_test_count = len(self._helper._root_groups[root_hash])
+        if end_test_count > start_test_count:
+            self._helper._root_groups[root_hash][-1]["teardown_level"] = self
