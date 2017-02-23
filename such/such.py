@@ -61,7 +61,7 @@ class GroupManager(object):
             delattr(self._helper, attr)
 
 
-class GroupTestCase(unittest.TestCase):
+class GroupTestCase(object):
     """The base test class for a Group.
 
     All Groups will have to create a class that represents each test for that
@@ -71,9 +71,7 @@ class GroupTestCase(unittest.TestCase):
 
     _helper = helper
     _group = None
-    _is_last = False
     _description = ""
-    _test_description = ""
 
     def __str__(self):
         return self._description
@@ -105,12 +103,12 @@ class GroupTestCase(unittest.TestCase):
             )
         cls._description += "{}{}".format(
             (indent * (cls._group._level + 1)),
-            cls._test_description,
+            cls._func.__doc__,
         )
 
     def _set_test_failure_description(self):
         ancestry = ":".join(reversed(self._group._ancestry))
-        self._description = "{} ({})".format(self._test_description, ancestry)
+        self._description = "{} ({})".format(self._func.__doc__, ancestry)
 
     @classmethod
     def setUpClass(cls):
@@ -201,6 +199,7 @@ class Group(object):
         self._test_teardowns = []
         self._children = []
         self._teardown_level = self
+        self._last_test_case = None
 
     @property
     def _level(self):
@@ -247,27 +246,36 @@ class Group(object):
         it, even if it has setups or teardowns.
         """
         if self._cases:
-            last_test_case = None
-
             # build test cases
+            setup_ancestry = list(reversed(self._ancestry))
+            root_group_hash = hash(setup_ancestry[0])
 
-            for i, case in enumerate(self._cases):
-                test_setups = self._test_setups
-                if i == 0:
-                    # first test is responsible for running the group setups
-                    test_setups[:0] = self._setups
-                # make TestCase here
+            group_index_path = ""
+            for group in setup_ancestry[1:]:
+                group_index_path += str(group._parent._children.index(group))
+            case_count_width = len(str(len(self._cases) - 1))
+            test_class_name = "Collection{}_GroupPath{}0_Test{{:0>{}}}".format(
+                root_group_hash,
+                group_index_path,
+                case_count_width,
+            )
+            bases = [
+                GroupTestCase,
+                unittest.TestCase,
+            ]
+            for i, case_func in enumerate(self._cases):
+                attrs = {
+                    "_group": self,
+                    "_func": case_func,
+                }
+                case_name = test_class_name.format(i)
+                self._last_test_case = type(case_name, bases, attrs)
+                self._last_test_case.__module__ = mod['__name__']
+                mod[self._last_test_case.__name__] = self._last_test_case
 
         for child in self._children:
-            if len(self._cases) == 0:
-                child._descriptions[:0] = self._descriptions
-                child._setups[:0] = self._setups
-            last_test_case = child._build_test_cases()
+            self._last_test_case = child._build_test_cases(mod)
 
-        if last_test_case is not None:
-            last_test_case._teardowns += self._teardowns
+        self._last_test_case._group._teardown_level = self
 
-        return last_test_case
-
-    def _make_test_class(self):
-        test_class = type(object)
+        return self._last_test_case
