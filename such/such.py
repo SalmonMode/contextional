@@ -27,29 +27,20 @@ class Helper(unittest.TestCase):
 
     def __init__(self):
         self._level_stack = []
-        self._root_groups = {}
+        self._cases = []
 
-    def _get_test_count_for_root_group(self, root_hash):
-        if root_hash not in self._root_groups.keys():
-            self._root_groups[root_hash] = []
-        return len(self._root_groups[root_hash])
+    def _get_test_count(self):
+        return len(self._cases)
 
-    def _set_teardown_level_for_test_of_root_group(self, root_hash, index,
-                                                   level):
-        if root_hash not in self._root_groups.keys():
-            self._root_groups[root_hash] = []
-        self._root_groups[root_hash][index]["teardown_level"] = level
+    def _set_teardown_level_for_last_case(self, level):
+        self._cases[-1]._teardown_level = level
 
-    def _add_test_details_to_root_group(self, root_hash, test_details):
-        if root_hash not in self._root_groups.keys():
-            self._root_groups[root_hash] = []
-        self._root_groups[root_hash].append(test_details)
+    def _add_case(self, case):
+        self._cases.append(case)
 
-    def _get_next_test_for_root_group(self, root_hash):
-        if root_hash not in self._root_groups.keys():
-            self._root_groups[root_hash] = []
+    def _get_next_test(self):
         try:
-            return self._root_groups[root_hash].pop(0)
+            return self._cases.pop(0)
         except IndexError:
             raise IndexError("more test classes than test cases")
 
@@ -101,9 +92,9 @@ class GroupManager(object):
     def should(self, desc):
         def decorator(f):
             _desc = desc if isinstance(desc, six.string_types) else f.__doc__
-            f.__doc__ = _desc
-            self._group._cases.append(f)
-            return f
+            case = Case(self._group, f, _desc)
+            self._group._cases.append(case)
+            return case
         if isinstance(desc, type(decorator)):
             return decorator(desc)
         return decorator
@@ -154,13 +145,13 @@ class GroupTestCase(object):
             )
         cls._description += "{}{}".format(
             (indent * (cls._group._level + 1)),
-            cls._group._cases[cls._group_case_index].__doc__,
+            cls._case._description,
         )
 
     def _set_test_failure_description(self):
-        ancestry = list(reversed(self._group._ancestry))
+        ancestry = list(reversed(self._case._group._ancestry))
         ancestry_description = "".join(g._description for g in ancestry)
-        test_description = self._group._cases[self._group_case_index].__doc__
+        test_description = self._case._description
         self._description = "{} ({})".format(
             test_description,
             ancestry_description,
@@ -168,22 +159,20 @@ class GroupTestCase(object):
 
     @classmethod
     def setUpClass(cls):
-        test_details = cls._helper._get_next_test_for_root_group(
-            cls._root_group_hash,
-        )
-        cls._group = test_details["group"]
-        cls._group_case_index = test_details["case_index"]
-        cls._teardown_level = test_details["teardown_level"]
+        cls._case = cls._helper._get_next_test()
+        cls._group = cls._case._group
+        cls._teardown_level = cls._case._teardown_level
         stack_comp = zip(
             cls._helper._level_stack,
             list(reversed(cls._group._ancestry)),
         )
-        branching_point = 0
+        branching_point = len(stack_comp)
         for i, level in enumerate(stack_comp):
             if level[0] == level[1]:
                 continue
             else:
                 branching_point = i
+                break
 
         teardown_stack = list(reversed(
             cls._helper._level_stack[branching_point:],
@@ -242,12 +231,10 @@ class GroupTestCase(object):
                 cls._helper._level_stack.remove(group)
 
     def runTest(self):
-        func = self._group._cases[self._group_case_index]
-        args, _, _, _ = inspect.getargspec(func)
-        if args:
-            func(self)
-        else:
-            func()
+        self._case(self)
+
+
+TEST_CLASS_NAME_TEMPLATE = "SuchCase_{}"
 
 
 class Group(object):
@@ -315,44 +302,45 @@ class Group(object):
         branches, then it's considered useless, and nothing will happen with
         it, even if it has setups or teardowns.
         """
-        root_hash = str(hash(self._root_group))
-        start_test_count = self._helper._get_test_count_for_root_group(
-            root_hash,
-        )
+        start_test_count = self._helper._get_test_count()
         if self._cases:
             # build test cases
-            test_class_name = "Collection{}_{{}}".format(root_hash)
             bases = (
                 GroupTestCase,
                 unittest.TestCase,
             )
-            for i in range(len(self._cases)):
-                case_details = {
-                    "group": self,
-                    "case_index": i,
-                    "teardown_level": None,
-                }
-                self._helper._add_test_details_to_root_group(
-                    root_hash,
-                    case_details,
-                )
-                attrs = {
-                    "_root_group_hash": root_hash,
-                }
-                case_name = test_class_name.format(getrandbits(128))
-                _test = type(case_name, bases, attrs)
+            for case in self._cases:
+                self._helper._add_case(case)
+                case_name = TEST_CLASS_NAME_TEMPLATE.format(getrandbits(128))
+                _test = type(case_name, bases, {})
                 _test.__module__ = mod['__name__']
                 mod[_test.__name__] = _test
 
         for child in self._children:
             child._build_test_cases(mod)
 
-        end_test_count = self._helper._get_test_count_for_root_group(
-            root_hash,
-        )
+        end_test_count = self._helper._get_test_count()
         if end_test_count > start_test_count:
-            self._helper._set_teardown_level_for_test_of_root_group(
-                root_hash,
-                -1,
-                self,
-            )
+            self._helper._set_teardown_level_for_last_case(self)
+
+
+class Case(object):
+
+    _helper = helper
+
+    def __init__(self, group, func, description):
+        self._group = group
+        self._func = func
+        self._description = description
+        self._teardown_level = None
+
+    def __call__(self, testcase, *args):
+        self._helper = testcase
+        funcargs, _, _, _ = inspect.getargspec(self._func)
+        if funcargs:
+            self._func(testcase, *args)
+        else:
+            self._func()
+
+    def __getattr__(self, attr):
+        return getattr(self._helper, attr)
