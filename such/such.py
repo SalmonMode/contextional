@@ -2,13 +2,14 @@ import unittest
 import inspect
 from random import getrandbits
 from contextlib import contextmanager
+from copy import deepcopy
 
 import six
 
 
 @contextmanager
 def A(description):
-    yield GroupManager("A " + str(description))
+    yield GroupCollection("A " + str(description))
 
 
 class Helper(unittest.TestCase):
@@ -47,7 +48,7 @@ class Helper(unittest.TestCase):
 helper = Helper()
 
 
-class GroupManager(object):
+class GroupCollection(object):
     """A manager for groups, and their fixtures, child groups, and tests.
 
     A group manager is used to handle constructing groups, and their fixtures,
@@ -63,13 +64,13 @@ class GroupManager(object):
 
     def __setattr__(self, attr, value):
         if attr in self.__dict__.keys() or attr == "_group":
-            super(GroupManager, self).__setattr__(attr, value)
+            super(GroupCollection, self).__setattr__(attr, value)
         else:
             setattr(self._helper, attr, value)
 
     def __delattr__(self, attr):
         if attr in self.__dict__.keys() or attr == "_group":
-            super(GroupManager, self).__delattr__(attr)
+            super(GroupCollection, self).__delattr__(attr)
         else:
             delattr(self._helper, attr)
 
@@ -106,6 +107,13 @@ class GroupManager(object):
     def has_test_teardown(self, func):
         self._group._test_teardowns.append(func)
         return func
+
+    def includes(self, collection):
+        if not isinstance(collection, GroupCollection):
+            raise TypeError("method only accepts GroupCollection objects")
+        group_copy = deepcopy(collection._group)
+        group_copy._parent = self._group
+        self._group._children.append(group_copy)
 
     def create_tests(self, mod):
         self._group._build_test_cases(mod)
@@ -301,10 +309,10 @@ class Group(object):
     def _build_test_cases(self, mod):
         """Build the test cases for this Group.
 
-        The group of the main GroupManager represents the root of a tree. Each
-        group should be considered a branch, capable of having leaves or other
-        branches as its children, and each test case should be considered a
-        leaf.
+        The group of the main GroupCollection represents the root of a tree.
+        Each group should be considered a branch, capable of having leaves or
+        other branches as its children, and each test case should be considered
+        a leaf.
 
         If a branch has no leaves on either itself, or any of its descendant
         branches, then it's considered useless, and nothing will happen with
