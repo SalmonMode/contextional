@@ -92,6 +92,7 @@ class GroupManager(object):
     def should(self, desc):
         def decorator(f):
             _desc = desc if isinstance(desc, six.string_types) else f.__doc__
+            _desc = "should " + _desc
             case = Case(self._group, f, _desc)
             self._group._cases.append(case)
             return case
