@@ -91,6 +91,22 @@ class GroupManager(object):
         yield self
         self._group = last_group
 
+    def has_setup(self, func):
+        self._group._setups.append(func)
+        return func
+
+    def has_test_setup(self, func):
+        self._group._test_setups.append(func)
+        return func
+
+    def has_teardown(self, func):
+        self._group._teardowns.append(func)
+        return func
+
+    def has_test_teardown(self, func):
+        self._group._test_teardowns.append(func)
+        return func
+
     def create_tests(self, mod):
         self._group._build_test_cases(mod)
 
