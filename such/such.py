@@ -8,7 +8,7 @@ import six
 
 @contextmanager
 def A(description):
-    yield GroupManager("A " + description)
+    yield GroupManager("A " + str(description))
 
 
 class Helper(unittest.TestCase):
