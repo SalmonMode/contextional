@@ -7,12 +7,8 @@ import six
 
 
 @contextmanager
-def Layer(description, desc_pre=None, desc_post=None):
-    yield GroupManager(
-        description,
-        desc_pre=desc_pre,
-        desc_post=desc_post,
-    )
+def A(description):
+    yield GroupManager("A " + description)
 
 
 class Helper(unittest.TestCase):
@@ -58,21 +54,9 @@ class GroupManager(object):
     child groups, and tests through the various decorators it provides.
     """
     _helper = helper
-    desc_pre = "A "
-    desc_post = ""
 
-    def __init__(self, description, desc_pre=None, desc_post=None):
-        if desc_pre is None:
-            desc_pre = self.desc_pre
-        if desc_post is None:
-            desc_post = self.desc_post
-        self._group = Group(
-            "{pre}{desc}{post}".format(
-                pre=desc_pre,
-                desc=description,
-                post=desc_post,
-                ),
-        )
+    def __init__(self, description):
+        self._group = Group(description)
 
     def __getattr__(self, attr):
         return getattr(self._helper, attr)
