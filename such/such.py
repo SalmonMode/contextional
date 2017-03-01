@@ -342,6 +342,7 @@ class Group(object):
     def _add_child(self, child_description):
         child = Group(child_description, parent=self)
         self._children.append(child)
+        return child
 
 
 class Case(object):
