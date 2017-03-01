@@ -84,6 +84,13 @@ class GroupManager(object):
             return decorator(desc)
         return decorator
 
+    @contextmanager
+    def having(self, description):
+        last_group = self._group
+        self._group = last_group._add_child("having " + description)
+        yield self
+        self._group = last_group
+
     def create_tests(self, mod):
         self._group._build_test_cases(mod)
 
@@ -307,6 +314,10 @@ class Group(object):
         end_test_count = self._helper._get_test_count()
         if end_test_count > start_test_count:
             self._helper._set_teardown_level_for_last_case(self)
+
+    def _add_child(self, child_description):
+        child = Group(child_description, parent=self)
+        self._children.append(child)
 
 
 class Case(object):
