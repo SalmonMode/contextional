@@ -14,7 +14,7 @@ def A(description):
 
 
 @contextmanager
-def create_collection(description):
+def Collection(description):
     yield GroupCollection(str(description))
 
 
