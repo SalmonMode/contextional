@@ -3,6 +3,7 @@ import inspect
 from random import getrandbits
 from contextlib import contextmanager
 from copy import deepcopy
+from types import FunctionType
 
 import six
 
@@ -79,26 +80,35 @@ class GroupCollection(object):
         else:
             delattr(self._helper, attr)
 
-    def add_test(self, desc):
-        def decorator(f):
-            _desc = desc if isinstance(desc, six.string_types) else f.__doc__
-            case = Case(self._group, f, _desc)
-            self._group._cases.append(case)
-            return case
-        if isinstance(desc, type(decorator)):
-            return decorator(desc)
-        return decorator
+    def add_test(self, func):
+        if isinstance(func, FunctionType):
+            desc = func.__doc__
+        else:
+            desc = func
 
-    def should(self, desc):
         def decorator(f):
-            _desc = desc if isinstance(desc, six.string_types) else f.__doc__
-            _desc = "should " + _desc
-            case = Case(self._group, f, _desc)
+            case = Case(self._group, f, desc)
             self._group._cases.append(case)
-            return case
-        if isinstance(desc, type(decorator)):
-            return decorator(desc)
-        return decorator
+
+        if isinstance(func, FunctionType):
+            decorator(func)
+        else:
+            return decorator
+
+    def should(self, func):
+        if isinstance(func, FunctionType):
+            desc = "should " + func.__doc__
+        else:
+            desc = "should " + func
+
+        def decorator(f):
+            case = Case(self._group, f, desc)
+            self._group._cases.append(case)
+
+        if isinstance(func, FunctionType):
+            decorator(func)
+        else:
+            return decorator
 
     @contextmanager
     def add_group(self, description):
@@ -116,25 +126,21 @@ class GroupCollection(object):
 
     def add_setup(self, func):
         self._group._setups.append(func)
-        return func
 
     has_setup = add_setup
 
     def add_test_setup(self, func):
         self._group._test_setups.append(func)
-        return func
 
     has_test_setup = add_test_setup
 
     def add_teardown(self, func):
         self._group._teardowns.append(func)
-        return func
 
     has_teardown = add_teardown
 
     def add_test_teardown(self, func):
         self._group._test_teardowns.append(func)
-        return func
 
     has_test_teardown = add_test_teardown
 
