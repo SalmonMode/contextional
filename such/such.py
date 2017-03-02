@@ -33,15 +33,19 @@ class Helper(unittest.TestCase):
         self._cases = []
 
     def _get_test_count(self):
+        """The number of test cases created at the current moment."""
         return len(self._cases)
 
     def _set_teardown_level_for_last_case(self, level):
+        """Set the teardown level of the last test case that was created."""
         self._cases[-1]._teardown_level = level
 
     def _add_case(self, case):
+        """Add a test case to the queue."""
         self._cases.append(case)
 
     def _get_next_test(self):
+        """Get the next test from the queue."""
         try:
             return self._cases.pop(0)
         except IndexError:
@@ -84,6 +88,7 @@ class GroupCollection(object):
             delattr(self._helper, attr)
 
     def add_test(self, func):
+
         if isinstance(func, FunctionType):
             desc = func.__doc__
         else:
