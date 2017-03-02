@@ -66,15 +66,18 @@ class GroupCollection(object):
         self._group = Group(description)
 
     def __getattr__(self, attr):
+        """Defer attribute lookups to helper."""
         return getattr(self._helper, attr)
 
     def __setattr__(self, attr, value):
+        """Defer attribute lookups to helper."""
         if attr in self.__dict__.keys() or attr == "_group":
             super(GroupCollection, self).__setattr__(attr, value)
         else:
             setattr(self._helper, attr, value)
 
     def __delattr__(self, attr):
+        """Defer attribute lookups to helper."""
         if attr in self.__dict__.keys() or attr == "_group":
             super(GroupCollection, self).__delattr__(attr)
         else:
@@ -171,15 +174,18 @@ class GroupTestCase(object):
         return self._description
 
     def __getattr__(self, attr):
+        """Defer attribute lookups to helper."""
         return getattr(self._helper, attr)
 
     def __setattr__(self, attr, value):
+        """Defer attribute lookups to helper."""
         if attr in self.__dict__.keys():
             super(GroupTestCase, self).__setattr__(attr, value)
         else:
             setattr(self._helper, attr, value)
 
     def __delattr__(self, attr):
+        """Defer attribute lookups to helper."""
         if attr in self.__dict__.keys():
             super(GroupTestCase, self).__delattr__(attr)
         else:
@@ -187,6 +193,33 @@ class GroupTestCase(object):
 
     @classmethod
     def _set_test_description(cls, setup_ancestry):
+        """Set the test's description that will go to stdout.
+
+        This may include the descriptions of a test's ancestor groups. For
+        example, in the following output:
+
+            Group A
+                Group B
+                    test 1 ... ok
+                    test 2 ... ok
+                Group C
+                    test 3 ... ok
+
+        `test 1`'s description is:
+
+            Group A
+                Group B
+                    test 1
+
+        `test 2`'s description is:
+
+                    test 2
+
+        and `test 3`'s description is:
+
+                Group C
+                    test 3
+        """
         indent = "  "
         for group in setup_ancestry:
             indentation = (indent * group._level)
@@ -201,6 +234,11 @@ class GroupTestCase(object):
         )
 
     def _set_test_failure_description(self):
+        """Set the description of the test in case it fails.
+
+        If a test fails, just having the test's name won't be very
+        informative, so it should provide the test's ancestry.
+        """
         ancestry = list(reversed(self._case._group._ancestry))
         ancestry_description = "".join(g._description for g in ancestry)
         test_description = self._case._description
@@ -400,4 +438,5 @@ class Case(object):
             self._func()
 
     def __getattr__(self, attr):
+        """Defer attribute lookups to helper."""
         return getattr(self._helper, attr)
