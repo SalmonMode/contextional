@@ -1,14 +1,13 @@
+from __future__ import (
+    absolute_import,
+    with_statement,
+)
 import unittest
 import inspect
 from random import getrandbits
 from contextlib import contextmanager
 from copy import deepcopy
 from types import FunctionType
-
-
-@contextmanager
-def group_context(description):
-    yield GroupContext(str(description))
 
 
 class Helper(unittest.TestCase):
@@ -51,7 +50,7 @@ class Helper(unittest.TestCase):
 helper = Helper()
 
 
-class GroupContext(object):
+class GroupContextManager(object):
     """A manager for groups, and their fixtures, child groups, and tests.
 
     A group manager is used to handle constructing groups, and their fixtures,
@@ -62,6 +61,13 @@ class GroupContext(object):
     def __init__(self, description):
         self._group = Group(description)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if exc_type is None:
+            return True
+
     def __getattr__(self, attr):
         """Defer attribute lookups to helper."""
         return getattr(self._helper, attr)
@@ -69,14 +75,14 @@ class GroupContext(object):
     def __setattr__(self, attr, value):
         """Defer attribute lookups to helper."""
         if attr in self.__dict__.keys() or attr == "_group":
-            super(GroupContext, self).__setattr__(attr, value)
+            super(GroupContextManager, self).__setattr__(attr, value)
         else:
             setattr(self._helper, attr, value)
 
     def __delattr__(self, attr):
         """Defer attribute lookups to helper."""
         if attr in self.__dict__.keys() or attr == "_group":
-            super(GroupContext, self).__delattr__(attr)
+            super(GroupContextManager, self).__delattr__(attr)
         else:
             delattr(self._helper, attr)
 
@@ -116,8 +122,8 @@ class GroupContext(object):
         self._group._test_teardowns.append(func)
 
     def includes(self, context):
-        if not isinstance(context, GroupContext):
-            raise TypeError("method only accepts GroupContext objects")
+        if not isinstance(context, GroupContextManager):
+            raise TypeError("method only accepts GroupContextManager objects")
         group_copy = deepcopy(context._group)
         group_copy._parent = self._group
         self._group._children.append(group_copy)
@@ -351,10 +357,10 @@ class Group(object):
     def _build_test_cases(self, mod):
         """Build the test cases for this Group.
 
-        The group of the main GroupContext represents the root of a tree. Each
-        group should be considered a branch, capable of having leaves or other
-        branches as its children, and each test case should be considered a
-        leaf.
+        The group of the main GroupContextManager represents the root of a
+        tree. Each group should be considered a branch, capable of having
+        leaves or other branches as its children, and each test case should be
+        considered aleaf.
 
         If a branch has no leaves on either itself, or any of its descendant
         branches, then it's considered useless, and nothing will happen with

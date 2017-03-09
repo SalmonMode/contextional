@@ -26,10 +26,10 @@ It's a portmanteau of the words "context" and "functional". These words were cho
 ### code:
 
 ```python
-from contextional import group_context
+from contextional import GroupContextManager
 
 
-with group_context("Predefined Group") as predefined_c:
+with GroupContextManager("Predefined Group") as predefined_c:
 
     @predefined_c.add_test("value is still 2")
     def test(case):
@@ -39,7 +39,7 @@ with group_context("Predefined Group") as predefined_c:
         )
 
 
-with group_context("Main Group") as c:
+with GroupContextManager("Main Group") as c:
 
     @c.add_setup
     def setUp():
