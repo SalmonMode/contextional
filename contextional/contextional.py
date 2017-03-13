@@ -55,16 +55,27 @@ class GroupContextManager(object):
 
     A group manager is used to handle constructing groups, and their fixtures,
     child groups, and tests through the various decorators it provides.
+
+    Example:
+
+        with GroupContextManager("Main Group") as MG:
+
+            @MG.add_test("something")
+            def test(case):
+                case.assertTrue(True)
     """
+
     _helper = helper
 
     def __init__(self, description):
         self._group = Group(description)
 
     def __enter__(self):
+        """Provide the context manager when entering the context."""
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
+        """Handle exiting the context."""
         if exc_type is None:
             return True
 
@@ -87,6 +98,25 @@ class GroupContextManager(object):
             delattr(self._helper, attr)
 
     def add_test(self, func):
+        """Add the decorated function to the current group as a test.
+
+        This decorator takes an optional argument for the description of the
+        test case. If not provided, the docstring of the function will be used
+        as the test case's description.
+
+        Example:
+
+            with GroupContextManager("Main Group") as MG:
+
+                @MG.add_test("something")
+                def test(case):
+                    case.assertTrue(True)
+
+        NOTE: To avoid any extra functions running by accident, this decorator
+        will NOT return any replacement function. The decorated function will
+        no longer exist in the global namespace of the module it was declared
+        in once the decorator is evaluated.
+        """
 
         if isinstance(func, FunctionType):
             desc = func.__doc__
@@ -104,25 +134,232 @@ class GroupContextManager(object):
 
     @contextmanager
     def add_group(self, description):
+        """Use a new child group of the parent group for this context.
+
+        Example:
+
+            with GroupContextManager("Root Group") as RG:
+
+                with RG.add_group("Child Group"):
+
+                    @RG.add_test("something")
+                    def test(case):
+                        assert True
+        """
         last_group = self._group
         self._group = last_group._add_child(description)
         yield self
         self._group = last_group
 
     def add_setup(self, func):
+        """Add the decorated function to the current group as a setup.
+
+        This setup will only be run once, and it will be run by the first test
+        case within the group. If the current group has no test cases, then the
+        first test case of any of the current group's descendants will run the
+        setup before running any of its own. If the current group does not
+        have any test cases and none of its descendants have any test cases,
+        then the setup will not get run.
+
+        While the setup must be run by the actual test cases themselves (as
+        that's the only opportunity to run code), it might be easiest to
+        imagine that the setups for a group get run only as you step in to that
+        group from its parent.
+
+        Example:
+
+            with GroupContextManager("Main Group") as MG:
+
+                @MG.add_setup
+                def setUp():
+                    MG.thing = 1
+
+                @MG.add_test("thing is 1")
+                def test(case):
+                    case.assertEqual(
+                        MG.thing,
+                        1,
+                    )
+
+        NOTE: To avoid any extra functions running by accident, this decorator
+        will NOT return any replacement function. The decorated function will
+        no longer exist in the global namespace of the module it was declared
+        in once the decorator is evaluated.
+        """
         self._group._setups.append(func)
 
     def add_test_setup(self, func):
+        """Add the decorated function to the current group as a test setup.
+
+        This test setup will be run once before each test case in the current
+        group. If the current group has no test cases, then this test setup
+        will never be run, even if a descendant of the current group has test
+        cases.
+
+        Example:
+
+            with GroupContextManager("Main Group") as MG:
+
+                @MG.add_setup
+                def setUp():
+                    MG.thing = 0
+
+                @MG.add_test_setup
+                def setUpTest():
+                    MG.thing += 1
+
+                @MG.add_test("thing is 1")
+                def test(case):
+                    case.assertEqual(
+                        MG.thing,
+                        1,
+                    )
+
+        NOTE: To avoid any extra functions running by accident, this decorator
+        will NOT return any replacement function. The decorated function will
+        no longer exist in the global namespace of the module it was declared
+        in once the decorator is evaluated.
+        """
         self._group._test_setups.append(func)
 
     def add_teardown(self, func):
+        """Add the decorated function to the current group as a teardown.
+
+        This teardown will only be run once, and it will be run by the last
+        test case within the group, including the test cases of the group's
+        descendants. If the current group has test cases, but its descendants
+        also have test cases, then only the single last test case of its
+        descendants will run the teardown after running its own teardowns. If
+        the current group does not have any test cases and none of its
+        descendants have any test cases, then the teardown will not get run.
+
+        While the teardowns must be run by the actual test cases themselves (as
+        that's the only opportunity to run code), it might be easiest to
+        imagine that the teardowns for a group get run only as you step out of
+        that group, back up to its parent group.
+
+        Example:
+
+            with GroupContextManager("Main Group") as MG:
+
+                @MG.add_setup
+                def setUp():
+                    MG.thing = 0
+
+                with MG.add_group("Child A"):
+
+                    @MG.add_setup
+                    def setUp():
+                        MG.thing += 2
+
+                    @MG.add_teardown
+                    def tearDown():
+                        MG.thing -= 1
+
+                    @MG.add_test("thing is 2")
+                    def test(case):
+                        case.assertEqual(
+                            MG.thing,
+                            2,
+                        )
+
+                with MG.add_group("Child B"):
+
+                    @MG.add_test("thing is now 1")
+                    def test(case):
+                        case.assertEqual(
+                            MG.thing,
+                            1,
+                        )
+
+        NOTE: To avoid any extra functions running by accident, this decorator
+        will NOT return any replacement function. The decorated function will
+        no longer exist in the global namespace of the module it was declared
+        in once the decorator is evaluated.
+        """
         self._group._teardowns.append(func)
 
     def add_test_teardown(self, func):
+        """Add the decorated function to the current group as a test teardown.
+
+        This test teardown will be run once after each test case in the current
+        group. If the current group has no test cases, then this test teardown
+        will never be run, even if a descendant of the current group has test
+        cases.
+
+        Example:
+
+            with GroupContextManager("Main Group") as MG:
+
+                @MG.add_setup
+                def setUp():
+                    MG.thing = 0
+
+                @MG.add_test_setup
+                def setUpTest():
+                    MG.thing += 1
+
+                @MG.add_test_teardown
+                def setUpTest():
+                    MG.thing -= 1
+
+                @MG.add_test("thing is 1")
+                def test(case):
+                    case.assertEqual(
+                        MG.thing,
+                        1,
+                    )
+
+                @MG.add_test("thing is still 1")
+                def test(case):
+                    case.assertEqual(
+                        MG.thing,
+                        1,
+                    )
+
+        NOTE: To avoid any extra functions running by accident, this decorator
+        will NOT return any replacement function. The decorated function will
+        no longer exist in the global namespace of the module it was declared
+        in once the decorator is evaluated.
+        """
         self._group._test_teardowns.append(func)
 
     @classmethod
     def utilize_asserts(cls, container):
+        """Allow the use of custom assert method in tests.
+
+        Accepts a class, list/set/dictionary of functions, or a function.
+
+        If a class is passed in, this takes all the methods of that class and
+        puts them into a dictionary, where the keys are the function names, and
+        the values are the functions themselves. If a list or set is passed in,
+        a dictionary is constructed using the names of the functions as the
+        keys with the functions being the values. If a function is passed in,
+        it is put into a dictionary, where the key is the function's name and
+        the value is the function itself. If a dictionary is passed in, it is
+        assumed that the keys are the function names, and the values are the
+        functions themselves.
+
+        Example:
+
+            class CustomAsserts(object):
+
+                def assertCustom(self, value):
+                    if value != "custom":
+                        raise AssertionError("value is not custom")
+
+            with GroupContextManager("Main Group") as MG:
+
+                MG.utilize_asserts(CustomAsserts)
+
+                @MG.add_test("is custom")
+                def test(case):
+                    case.assertCustom("custom")
+
+        Once the functions are parsed into a dictionary, they are each set as
+        attributes of the `Helper` class, using their dictionary keys as their
+        method names, but only if they're would-be names start with "assert".
+        """
         assert_methods = {}
         if inspect.isclass(container):
             assert_methods = {
@@ -146,6 +383,33 @@ class GroupContextManager(object):
                 setattr(Helper, name, method)
 
     def includes(self, context):
+        """Graft another `GroupContextManager`'s group structure here.
+
+        Take the root group of a `GroupContextManager` instance, make a
+        deepcopy of it, and append it to this `GroupContextManager`'s current
+        group's children so that copies of all of its tests get run within the
+        context of the current group in the order and structure they were
+        originally defined in.
+
+        Example:
+
+            with GroupContextManager("Predefined Group") as PG:
+
+                @PG.add_test("value is 1")
+                def test(case):
+                    case.assertEqual(
+                        PG.value,
+                        1,
+                    )
+
+            with GroupContextManager("Main Group") as MG:
+
+                @MG.add_setup
+                def setUp():
+                    MG.value = 1
+
+                MG.includes(PG)
+        """
         if not isinstance(context, GroupContextManager):
             raise TypeError("method only accepts GroupContextManager objects")
         group_copy = deepcopy(context._group)
@@ -153,6 +417,34 @@ class GroupContextManager(object):
         self._group._children.append(group_copy)
 
     def create_tests(self, mod):
+        """Create the tests that will be discovered by the testing framework.
+
+        This walks through the tree of groups and test cases, creating the
+        `Case` instances that the `_helper` holds, and a `TestCase` class for
+        each `Case` instance to run that `Case` instance.
+
+        Only `GroupContextManager` instances that call this method will have
+        their tests run. If a `GroupContextManager` instance does not call this
+        method, it should only be so that its group structure could be included
+        in another `GroupContextManager`'s structure.
+
+        Example:
+
+            with GroupContextManager("Main Group") as MG:
+
+                @MG.add_setup
+                def setUp():
+                    MG.value = 1
+
+                @MG.add_test("value is 1")
+                def test(case):
+                    case.assertEqual(
+                        MG.value,
+                        1,
+                    )
+
+            MG.create_tests(globals())
+        """
         self._group._build_test_cases(mod)
 
 
@@ -169,6 +461,40 @@ class GroupTestCase(object):
     _description = ""
 
     def __str__(self):
+        """String representation of the test case.
+
+        While the tests are running, the test case's description should only
+        contain what is necessary, based on what tests have already run. After
+        the tests have run, in the test results output, the test case's
+        description should have its entire ancestry listed so that the
+        failed/errored/skipped test has the necessary context (in the event
+        that two test cases have the same name, but are in different contexts).
+
+        This method allows the test case to alter it's description so that
+        during runtime, you will see this:
+
+            Group A
+                Group B
+                    test #1 ... ok
+                Group C
+                    test #2 ... FAIL
+
+        instead of this:
+
+            Group A
+                Group B
+                    test #1 ... ok
+            Group A
+                Group C
+                    test #2 ... FAIL
+
+        but the test case's description in the test result output will look
+        like this:
+
+            Group A
+                Group C
+                    test #2
+        """
         return self._description
 
     def __getattr__(self, attr):
@@ -232,10 +558,11 @@ class GroupTestCase(object):
         )
 
     def _set_test_failure_description(self):
-        """Set the description of the test in case it fails.
+        """Set the description of the test in case it fails/errors/is skipped.
 
-        If a test fails, just having the test's name won't be very
-        informative, so it should provide the test's ancestry.
+        If a test fails, errors, or is skipped, then just having the test's
+        name won't be very informative, so it should provide the test's
+        ancestry.
         """
         ancestry = list(reversed(self._case._group._ancestry))
         ancestry_description = "".join(g._description for g in ancestry)
@@ -247,6 +574,40 @@ class GroupTestCase(object):
 
     @classmethod
     def setUpClass(cls):
+        """The preparations for the test case class that's about to be run.
+
+        The `setUpClass` method must first get the next test case from the
+        `_helper`. It will then use that test case to figure out what setups
+        and/or leftover teardowns need to be run before the test can be
+        performed. The leftover teardowns will be run first (if there are any),
+        and the setups will follow after.
+
+        To determine what teardowns and setups must be run, this method looks
+        at the `_helper`'s `_level_stack` attribute to see what groups have had
+        their setups run, but not their teardowns. For example, if this is the
+        general group structure:
+
+            A
+                B
+                    C
+                D
+                    E
+
+        and the current `_level_stack` is `[A, B, C]`, but the group that is
+        currently about to run is `E`, then `E` can know that the teardowns for
+        `C` needs to be run, followed by those for `B`, and then the setups for
+        `D` can be run, followed by those for `E`.
+
+        This is also when the runtime description for the test case is
+        established, based on that same `_level_stack`. In the previous
+        example, the first test in `E` would be able to see that the setups for
+        `A` had already been run, and that it must've already been written to
+        the output, so it knows that it's description would only have to be:
+
+                D
+                    E
+                        some test
+        """
         cls._case = cls._helper._get_next_test()
         cls._group = cls._case._group
         cls._teardown_level = cls._case._teardown_level
@@ -288,6 +649,13 @@ class GroupTestCase(object):
             cls._helper._level_stack.append(group)
 
     def setUp(self):
+        """The preparations required to be run before each test in the group.
+
+        This is also where the description of the current test case is modified
+        to include its full ancestry, so that, in the event that this test case
+        fails, errors, or is skipped, the test's description in the results
+        output provides the complete context for this test case.
+        """
         self._set_test_failure_description()
         for setup in self._group._test_setups:
             args, _, _, _ = inspect.getargspec(setup)
@@ -297,6 +665,7 @@ class GroupTestCase(object):
                 setup()
 
     def tearDown(self):
+        """The cleanup required to be run after each test in the group."""
         for teardown in self._group._test_teardowns:
             args, _, _, _ = inspect.getargspec(teardown)
             if args:
@@ -306,6 +675,13 @@ class GroupTestCase(object):
 
     @classmethod
     def tearDownClass(cls):
+        """The cleanup required for all the groups being stepped out of.
+
+        The heirarchy of groups is that of a tree structure. After the last
+        test of a branch is run, all the cleanups required for that branch must
+        be run, and the branches (groups) being stepped out of must be removed
+        from the `_helper`'s `_level_stack` attribute.
+        """
         if cls._teardown_level is not None:
             stop_index = cls._group._ancestry.index(cls._teardown_level) + 1
             teardown_ancestry = cls._group._ancestry[:stop_index]
@@ -319,6 +695,7 @@ class GroupTestCase(object):
                 cls._helper._level_stack.remove(group)
 
     def runTest(self):
+        """Execute the actual test case function."""
         self._case(self)
 
 
@@ -344,6 +721,11 @@ class Group(object):
 
     @property
     def _level(self):
+        """The level of the group within the tree structure.
+
+        This is defined by:
+            1 + the number of connections between the group and the root group.
+        """
         level = 0
         parent = self._parent
         while parent is not None:
@@ -376,6 +758,7 @@ class Group(object):
 
     @property
     def _root_group(self):
+        """The root group of the `GroupContextManager` instance."""
         return self._ancestry[-1]
 
     def _build_test_cases(self, mod):
@@ -412,12 +795,24 @@ class Group(object):
             self._helper._set_teardown_level_for_last_case(self)
 
     def _add_child(self, child_description):
+        """Add a child `Group` instance to the current group.
+
+        The child `Group` must be appended to the current `Group`'s list of
+        children, and it must be aware that the current `Group` is its parent.
+        """
         child = Group(child_description, parent=self)
         self._children.append(child)
         return child
 
 
 class Case(object):
+    """Information about the test case.
+
+    This includes the `Group` that this test case belongs to, the test case's
+    description, the `Group` level that this test case will need to teardown to
+    if needed (`None` by default), and the actual function that performs the
+    test.
+    """
 
     _helper = helper
 
@@ -428,6 +823,7 @@ class Case(object):
         self._teardown_level = None
 
     def __call__(self, testcase, *args):
+        """Performs the actual test."""
         self._helper = testcase
         funcargs, _, _, _ = inspect.getargspec(self._func)
         if funcargs:
