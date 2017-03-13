@@ -121,6 +121,30 @@ class GroupContextManager(object):
     def add_test_teardown(self, func):
         self._group._test_teardowns.append(func)
 
+    @classmethod
+    def utilize_asserts(cls, container):
+        assert_methods = {}
+        if inspect.isclass(container):
+            assert_methods = {
+                name: method.im_func for name, method in inspect.getmembers(
+                    container,
+                    predicate=inspect.ismethod,
+                )
+            }
+        elif isinstance(container, list) or isinstance(container, set):
+            assert_methods = {method.__name__: method for method in container}
+        elif isinstance(container, dict):
+            assert_methods = container
+        elif isinstance(container, FunctionType):
+            assert_methods = {container.__name__: container}
+        else:
+            raise TypeError(
+                "Unexpected type. Must be class, list, dict, or function",
+            )
+        for name, method in assert_methods.items():
+            if name.startswith("assert"):
+                setattr(Helper, name, method)
+
     def includes(self, context):
         if not isinstance(context, GroupContextManager):
             raise TypeError("method only accepts GroupContextManager objects")
