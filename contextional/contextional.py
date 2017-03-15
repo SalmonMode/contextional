@@ -695,7 +695,7 @@ class GroupTestCase(object):
                 cls._helper._level_stack.remove(group)
 
     def runTest(self):
-        """Execute the actual test case function."""
+        # Execute the actual test case function.
         self._case(self)
 
 
