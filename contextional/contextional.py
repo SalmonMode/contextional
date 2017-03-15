@@ -8,6 +8,7 @@ from random import getrandbits
 from contextlib import contextmanager
 from copy import deepcopy
 from types import FunctionType
+from collections import Mapping
 
 
 class Helper(unittest.TestCase):
@@ -133,23 +134,101 @@ class GroupContextManager(object):
             return decorator
 
     @contextmanager
-    def add_group(self, description):
+    def add_group(self, description, params=()):
         """Use a new child group of the parent group for this context.
 
-        Example:
+        If provided with parameters, a duplicate group will be made for each
+        set of parameters (if any are provided) where each set of parameters is
+        passed to both the setups and teardowns for that group.
 
-            with GroupContextManager("Root Group") as RG:
+        If the parameters are just a sequence of parameters (i.e. a set, tuple,
+        or list), then the group's description will show the particular set of
+        parameters used for that group. If it is a mapping, the key for each
+        set will be applied to the end of the group's description instead. Each
+        set of parameters can either be a set/tuple/list, or a Mapping if you
+        want keyword arguments to be passed to your setups/teardowns. For
+        example, the following code:
 
-                with RG.add_group("Child Group"):
+            with GroupContextManager("Some Group") as SG:
 
-                    @RG.add_test("something")
+                params = (
+                    {
+                        "num_1": 1,
+                        "num_2": 2,
+                        "num_3": 3,
+                    },
+                    {
+                        "num_3": 3,
+                        "num_2": 2,
+                        "num_1": 1,
+                    },
+                )
+                with SG.add_group("Child Group", params=params):
+
+                    @SG.add_setup
+                    def setUp(num_1, num_2, num_3):
+                        SG.sum = num_1 + num_2 + num_3
+
+                    @SG.add_test("sum is 6")
                     def test(case):
-                        assert True
+                        case.assertEqual(SG.sum, 6)
+
+                params = {
+                    "set #1": (1, 2, 3),
+                    "set #2": (3, 2, 1),
+                }
+                with SG.add_group("Another Child Group", params=params):
+
+                    @SG.add_setup
+                    def setUp(num_1, num_2, num_3):
+                        SG.sum = num_1 + num_2 + num_3
+
+                    @SG.add_test("sum is 6")
+                    def test(case):
+                        case.assertEqual(SG.sum, 6)
+
+        will show the following output:
+
+            Some Group
+              Child Group {'num_1': 1, 'num_2': 2, 'num_3': 3}
+                sum is 6 ... ok
+              Child Group {'num_1': 1, 'num_2': 2, 'num_3': 3}
+                sum is 6 ... ok
+              Another Child Group set #2
+                sum is 6 ... ok
+              Another Child Group set #1
+                sum is 6 ... ok
+
+
         """
         last_group = self._group
         self._group = last_group._add_child(description)
         yield self
+
+        no_params = params == ()
+
+        group_identifiers = []
+        if isinstance(params, Mapping):
+            group_identifiers = params.keys()
+        elif no_params:
+            group_identifiers = [0]
+        else:
+            group_identifiers = range(len(params))
+        for gid in group_identifiers:
+            args = () if no_params else params[gid]
+            new_group = deepcopy(self._group)
+            new_group._parent = last_group
+            new_group._args = args
+            if isinstance(params, Mapping):
+                new_group._description += " {}".format(gid)
+            elif no_params:
+                pass
+            else:
+                new_group._description += " {}".format(params[gid])
+            last_group._children.append(new_group)
+        original_new_child = self._group
         self._group = last_group
+        self._group._children.remove(original_new_child)
 
     def add_setup(self, func):
         """Add the decorated function to the current group as a setup.
@@ -628,11 +707,10 @@ class GroupTestCase(object):
         ))
         for group in teardown_stack:
             for teardown in group._teardowns:
-                args, _, _, _ = inspect.getargspec(teardown)
-                if args:
-                    teardown(cls)
+                if isinstance(group._args, Mapping):
+                    teardown(**group._args)
                 else:
-                    teardown()
+                    teardown(*group._args)
             cls._helper._level_stack.remove(group)
 
         setup_ancestry = list(reversed(cls._group._ancestry))[branching_point:]
@@ -641,11 +719,10 @@ class GroupTestCase(object):
 
         for group in setup_ancestry:
             for setup in group._setups:
-                args, _, _, _ = inspect.getargspec(setup)
-                if args:
-                    setup(cls)
+                if isinstance(group._args, Mapping):
+                    setup(**group._args)
                 else:
-                    setup()
+                    setup(*group._args)
             cls._helper._level_stack.append(group)
 
     def setUp(self):
@@ -687,11 +764,10 @@ class GroupTestCase(object):
             teardown_ancestry = cls._group._ancestry[:stop_index]
             for group in teardown_ancestry:
                 for teardown in group._teardowns:
-                    args, _, _, _ = inspect.getargspec(teardown)
-                    if args:
-                        teardown(cls)
+                    if isinstance(group._args, Mapping):
+                        teardown(**group._args)
                     else:
-                        teardown()
+                        teardown(*group._args)
                 cls._helper._level_stack.remove(group)
 
     def runTest(self):
@@ -707,9 +783,10 @@ class Group(object):
 
     _helper = helper
 
-    def __init__(self, description, parent=None):
+    def __init__(self, description, args=(), parent=None):
         self._description = description
         self._parent = parent
+        self._args = args
         self._cases = []
         self._setups = []
         self._teardowns = []
