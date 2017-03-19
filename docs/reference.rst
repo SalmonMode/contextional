@@ -7,9 +7,9 @@ Reference
 GroupContextManager
 ===================
 
-    .. autoclass:: contextional.GroupContextManager
-      :members:
-      :exclude-members: add_group
+.. autoclass:: contextional.GroupContextManager
+  :members:
+  :exclude-members: add_group
 
-      .. automethod::
-          contextional.GroupContextManager.add_group(self, description[, params=()])
+  .. automethod::
+      contextional.GroupContextManager.add_group(self, description[, params=()])
