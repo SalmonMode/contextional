@@ -552,7 +552,7 @@ class GroupContextManager(object):
         :param mod: :func:`.globals`
 
         This walks through the tree of groups and test cases, creating the
-        :class:`.Case` instances that the :attribute:`_helper` holds, and a
+        :class:`.Case` instances that the :attr:`._helper` holds, and a
         :class:`.TestCase` class for each :class:`.Case` instance to run that
         :class:`.Case` instance.
 
@@ -724,15 +724,15 @@ class GroupTestCase(object):
         """The preparations for the test case class that's about to be run.
 
         The :meth:`.setUpClass` method must first get the next test case from
-        the :attribute:`_helper`. It will then use that test case to figure out
+        the :attr:`._helper`. It will then use that test case to figure out
         what setups and/or leftover teardowns need to be run before the test
         can be performed. The leftover teardowns will be run first (if there
         are any), and the setups will follow after.
 
         To determine what teardowns and setups must be run, this method looks
-        at the :attribute:`_helper`\ 's :attribute:`_level_stack` attribute to
-        see what groups have had their setups run, but not their teardowns. For
-        example, if this is the general group structure:
+        at the :attr:`._helper`\ 's :attr:`._level_stack` attribute to see what
+        groups have had their setups run, but not their teardowns. For example,
+        if this is the general group structure:
 
         .. code-block:: none
 
@@ -742,16 +742,15 @@ class GroupTestCase(object):
                 D
                     E
 
-        and the current :attribute:`_level_stack` is ``[A, B, C]``, but the
-        group
+        and the current :attr:`._level_stack` is ``[A, B, C]``, but the group
         that is currently about to run is ``E``, then ``E`` can know that the
         teardowns for ``C`` needs to be run, followed by those for ``B``, and
         then the setups for ``D`` can be run, followed by those for ``E``.
 
         This is also when the runtime description for the test case is
-        established, based on that same :attribute:`_level_stack`. In the
-        previous example, the first test in ``E`` would be able to see that the
-        setups for ``A`` had already been run, and that it must've already been
+        established, based on that same :attr:`._level_stack`. In the previous
+        example, the first test in ``E`` would be able to see that the setups
+        for ``A`` had already been run, and that it must've already been
         written to the output, so it knows that it's description would only
         have to be:
 
@@ -831,7 +830,7 @@ class GroupTestCase(object):
         The heirarchy of groups is that of a tree structure. After the last
         test of a branch is run, all the cleanups required for that branch must
         be run, and the branches (groups) being stepped out of must be removed
-        from the :attribute:`_helper`\ 's :attribute:`_level_stack` attribute.
+        from the :attr:`._helper`\ 's :attr:`._level_stack`.
         """
         if cls._teardown_level is not None:
             stop_index = cls._group._ancestry.index(cls._teardown_level) + 1
