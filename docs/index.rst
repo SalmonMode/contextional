@@ -5,7 +5,7 @@ Contextional
 A context-based functional testing DSL for Python
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 4
 
     overview
     writing-tests
