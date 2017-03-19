@@ -284,6 +284,16 @@ And with that, our test output would look like this:
 
 You would take the same approach for all the other fixture types.
 
+Can I have a layer with fixtures, but no tests?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Yes, but in order for it to be used, that layer must have a descendant layer
+that has tests. Otherwise, it will be ignored.
+
+Also, if the fixtures are test-level fixtures (i.e. test setups and test
+teardowns), then they will definitely not be used if there aren't any tests
+defined in the same layer.
+
 How do I predefine a :class:`.GroupContextManager` that I can use elsewhere?
 ----------------------------------------------------------------------------
 
