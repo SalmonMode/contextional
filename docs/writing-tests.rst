@@ -12,7 +12,7 @@ control how your tests and fixtures play out.
 
 You should know that any code you've written along side your fixture and test
 definitions is getting run, so you can use this to your advantage to influence
-how your fixtures andtests get defined. But none of the tests or fixtures you
+how your fixtures and tests get defined. But none of the tests or fixtures you
 defined will get used if you don't call :meth:`.create_tests` on the
 :class:`.GroupContextManager` instance that you made (see below for
 example usage).
