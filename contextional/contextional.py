@@ -780,10 +780,7 @@ class GroupTestCase(object):
         ))
         for group in teardown_stack:
             for teardown in group._teardowns:
-                if isinstance(group._args, Mapping):
-                    teardown(**group._args)
-                else:
-                    teardown(*group._args)
+                teardown()
             cls._helper._level_stack.remove(group)
 
         setup_ancestry = list(reversed(cls._group._ancestry))[branching_point:]
@@ -837,10 +834,7 @@ class GroupTestCase(object):
             teardown_ancestry = cls._group._ancestry[:stop_index]
             for group in teardown_ancestry:
                 for teardown in group._teardowns:
-                    if isinstance(group._args, Mapping):
-                        teardown(**group._args)
-                    else:
-                        teardown(*group._args)
+                    teardown()
                 cls._helper._level_stack.remove(group)
 
     def runTest(self):
