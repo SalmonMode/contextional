@@ -763,9 +763,11 @@ class GroupTestCase(object):
         cls._case = cls._helper._get_next_test()
         cls._group = cls._case._group
         cls._teardown_level = cls._case._teardown_level
-        stack_comp = zip(
-            cls._helper._level_stack,
-            list(reversed(cls._group._ancestry)),
+        stack_comp = list(
+            zip(
+                cls._helper._level_stack,
+                list(reversed(cls._group._ancestry)),
+            ),
         )
         branching_point = len(stack_comp)
         for i, level in enumerate(stack_comp):
