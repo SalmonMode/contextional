@@ -6,7 +6,7 @@ __VERSION__ = "0.7.2"
 setup(
     name="contextional",
     version=__VERSION__,
-    description="A functional testing DSL for Python",
+    description="A functional testing tool for Python",
     url="https://github.com/SalmonMode/contextional",
     download_url=(
         "https://github.com/SalmonMode/contextional/archive/{}.tar.gz"

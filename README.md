@@ -1,5 +1,5 @@
 # `contextional`
-A context-based functional testing DSL for Python
+A context-based functional testing tool for Python
 
 ## Installation
 
@@ -11,7 +11,7 @@ pip install contextional
 
 ## "`contex`-`tional`?"
 
-It's a portmanteau of the words "context" and "functional". These words were chosen because the DSL works by using context managers (`with` statements), and allows you to write functional tests (testing as you go).
+It's a portmanteau of the words "context" and "functional". These words were chosen because the tool works by using context managers (`with` statements), and allows you to write functional tests (testing as you go).
 
 ## What does it do?
 
