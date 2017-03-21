@@ -487,11 +487,17 @@ class GroupContextManager(object):
         """
         assert_methods = {}
         if inspect.isclass(container):
+            c_funcs = inspect.getmembers(
+                container,
+                predicate=inspect.isfunction,
+            )
+            c_meths = inspect.getmembers(
+                container,
+                predicate=inspect.ismethod,
+            )
+            c_meths_funcs = list((n, m.__func__) for n, m in c_meths)
             assert_methods = {
-                name: method.__func__ for name, method in inspect.getmembers(
-                    container,
-                    predicate=inspect.ismethod,
-                )
+                name: method for name, method in set(c_funcs + c_meths_funcs)
             }
         elif isinstance(container, list) or isinstance(container, set):
             assert_methods = {method.__name__: method for method in container}
