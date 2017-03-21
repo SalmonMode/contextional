@@ -488,7 +488,7 @@ class GroupContextManager(object):
         assert_methods = {}
         if inspect.isclass(container):
             assert_methods = {
-                name: method.im_func for name, method in inspect.getmembers(
+                name: method.__func__ for name, method in inspect.getmembers(
                     container,
                     predicate=inspect.ismethod,
                 )
