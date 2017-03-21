@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 
-__VERSION__ = "0.7.5"
+__VERSION__ = "0.7.6"
 
 setup(
     name="contextional",
