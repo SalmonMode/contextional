@@ -598,6 +598,7 @@ class GroupTestCase(object):
     _helper = helper
     _root_group_hash = None
     _description = ""
+    _full_description = ""
 
     def __str__(self):
         """String representation of the test case.
@@ -640,7 +641,10 @@ class GroupTestCase(object):
                 Group C
                     test #2
         """
-        return self._description
+        if self._case._test_started:
+            return self._full_description
+        else:
+            return self._description
 
     def __getattr__(self, attr):
         """Defer attribute lookups to helper."""
@@ -661,11 +665,21 @@ class GroupTestCase(object):
             delattr(self._helper, attr)
 
     @classmethod
-    def _set_test_description(cls, setup_ancestry):
-        """Set the test's description that will go to stdout.
+    def _set_test_descriptions(cls, setup_ancestry):
+        """Set the test's normal description and full description.
 
-        This may include the descriptions of a test's ancestor groups. For
-        example, in the following output:
+        The test needs to have two descriptions:
+
+        1. A normal description that contains only the descriptions of the
+           groups in its ancestry that it ran the setups for.
+        2. The full description, which contains the descriptions of all the
+           groups in the test's ancestry.
+
+        The normal description is to be used while the tests are running, so
+        the output doesn't repeatedly show the description for ancestor group
+        that two tests have in common, as this could cause confusion regarding
+        the context within which a test is running. For example, in the
+        following output:
 
         .. code-block:: none
 
@@ -676,7 +690,7 @@ class GroupTestCase(object):
                 Group C
                     test 3 ... ok
 
-        test 1's description is:
+        test 1's normal description is:
 
         .. code-block:: none
 
@@ -684,18 +698,33 @@ class GroupTestCase(object):
                 Group B
                     test 1
 
-        test 2's description is:
+        test 2's normal description is:
 
         .. code-block:: none
 
                     test 2
 
-        and test 3's description is:
+        and test 3's normal description is:
 
         .. code-block:: none
 
                 Group C
                     test 3
+
+        Should any of these tests fail, though, it would be very useful to know
+        the complete context in which the failed test occured, so the complete
+        ancestry should be shown which each failed test's failure report. For
+        example, test 2's failure report from the previous example should start
+        with this:
+
+        .. code-block:: none
+
+            ===================================================================
+            FAIL:
+            Group A
+              Group B
+                test 2
+            -------------------------------------------------------------------
         """
         indent = "  "
         for group in setup_ancestry:
@@ -710,19 +739,17 @@ class GroupTestCase(object):
             cls._case._description,
         )
 
-    def _set_test_failure_description(self):
-        """Set the description of the test in case it fails/errors/is skipped.
-
-        If a test fails, errors, or is skipped, then just having the test's
-        name won't be very informative, so it should provide the test's
-        ancestry.
-        """
-        ancestry = list(reversed(self._case._group._ancestry))
-        ancestry_description = "".join(g._description for g in ancestry)
-        test_description = self._case._description
-        self._description = "{} ({})".format(
-            test_description,
-            ancestry_description,
+        full_ancestry = list(reversed(cls._case._group._ancestry))
+        for group in full_ancestry:
+            indentation = (indent * group._level)
+            level_description = group._description
+            cls._full_description += "\n{}{}".format(
+                indentation,
+                level_description,
+            )
+        cls._full_description += "\n{}{}".format(
+            (indent * (cls._group._level + 1)),
+            cls._case._description,
         )
 
     @classmethod
@@ -793,7 +820,7 @@ class GroupTestCase(object):
 
         setup_ancestry = list(reversed(cls._group._ancestry))[branching_point:]
 
-        cls._set_test_description(setup_ancestry)
+        cls._set_test_descriptions(setup_ancestry)
 
         for group in setup_ancestry:
             for setup in group._setups:
@@ -811,7 +838,7 @@ class GroupTestCase(object):
         fails, errors, or is skipped, the test's description in the results
         output provides the complete context for this test case.
         """
-        self._set_test_failure_description()
+        self._case._test_started = True
         for setup in self._group._test_setups:
             args, _, _, _ = inspect.getargspec(setup)
             if args:
@@ -976,6 +1003,7 @@ class Case(object):
         self._func = func
         self._description = description
         self._teardown_level = None
+        self._test_started = False
 
     def __call__(self, testcase, *args):
         """Performs the actual test."""
