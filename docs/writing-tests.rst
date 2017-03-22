@@ -382,6 +382,62 @@ then you would only need to say this in the module that would use it::
 
     from some.module import IG
 
+What if I want to include the predefined tests, fixtures, and/or child groups
+from a :class:`.GroupContextManager` alongside those from my current group?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can just use :meth:`merge`, then. It takes the tests, fixtures, and child
+groups of a :class:`.GroupContextManager` and makes them part of the group
+you're merging them into, so they won't just be added as a child group.
+
+This is useful if you know you are going to be using identical tests but on
+different things.
+
+It looks something like this::
+
+    def multiplier(num_1, num_2):
+        return num_1 * num_2
+
+
+    with GroupContextManager("value test") as vt:
+
+        @vt.add_test("value")
+        def test(case):
+            case.assertEqual(
+                vt.value,
+                vt.expected_value,
+            )
+
+    with GroupContextManager("Main Group") as MG:
+
+        with MG.add_group("2 and 3"):
+
+            @MG.add_setup
+            def setUp():
+                MG.value = multiplier(2, 3)
+                MG.expected_value = 6
+
+            MG.merge(vt)
+
+        with MG.add_group("3 and 5"):
+
+            @MG.add_setup
+            def setUp():
+                MG.value = multiplier(3, 5)
+                MG.expected_value = 15
+
+            MG.merge(vt)
+
+
+Output:
+
+.. code-block:: none
+
+    Main Group
+      value is 1 ... ok
+      Sub Group
+        value is still 1 ... ok
+
 How can my fixtures and tests use persistent resources as they run?
 ------------------------------------------------------------------------
 
