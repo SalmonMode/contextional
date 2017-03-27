@@ -571,12 +571,12 @@ class GroupContextManager(object):
         group_copy._parent = self._group
         self._group._children.append(group_copy)
 
-    def merge(self, context):
-        """Merge a :class:`.GroupContextManager` group structure here.
+    def combine(self, context):
+        """Use the contents of a :class:`.GroupContextManager`'s root group.
 
         :param context:
             A :class:`.GroupContextManager` object containing the group
-            structure you want to merge with the group of the current context
+            structure you want to combine with the group of the current context
         :type context: :class:`.GroupContextManager`
 
         Take the root group of a :class:`.GroupContextManager` instance, make a
@@ -609,7 +609,7 @@ class GroupContextManager(object):
                 def setUp():
                     MG.value = 1
 
-                MG.merge(PG)
+                MG.combine(PG)
 
         Output:
 

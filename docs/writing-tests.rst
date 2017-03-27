@@ -386,7 +386,7 @@ What if I want to include the predefined tests, fixtures, and/or child groups
 from a :class:`.GroupContextManager` alongside those from my current group?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can just use :meth:`merge`, then. It takes the tests, fixtures, and child
+You can just use :meth:`combine`, then. It takes the tests, fixtures, and child
 groups of a :class:`.GroupContextManager` and makes them part of the group
 you're merging them into, so they won't just be added as a child group.
 
@@ -417,7 +417,7 @@ It looks something like this::
                 MG.value = multiplier(2, 3)
                 MG.expected_value = 6
 
-            MG.merge(vt)
+            MG.combine(vt)
 
         with MG.add_group("3 and 5"):
 
@@ -426,7 +426,7 @@ It looks something like this::
                 MG.value = multiplier(3, 5)
                 MG.expected_value = 15
 
-            MG.merge(vt)
+            MG.combine(vt)
 
 
 Output:
