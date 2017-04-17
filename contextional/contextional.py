@@ -747,6 +747,41 @@ class GroupTestCase(object):
             delattr(self._helper, attr)
 
     @classmethod
+    def _set_class_name_for_group(cls, group, fixture_label):
+        """Set the class's __name__ to the given group's full description.
+
+        Given a group, figure out the full description of the group, and set
+        the class's __name__ attribute to be "Contextional Case <fixture>:" +
+        that description, so it might read something like this:
+
+        .. code-block:: none
+
+            Contextional Case:
+              Group A
+                Group B
+
+        This is essential so that if a TestCase has an error while running a
+        group-level fixture(i.e. :meth:`.setUp` or :meth:`.tearDown`), the
+        description of the class that is shown in the error report will show
+        the ancestry of the group, rather than something like:
+
+        .. code-block:: none
+
+            ContextionalCase_60380066538155172867724856122028906249
+
+        This will help debug any errors that might occur during one of these
+        fixtures, as it points to the specific point in the ancestry that had
+        the problem.
+        """
+        cls.__name__ = "Contextional Case {}:".format(fixture_label)
+        group_ancestry = list(reversed(group._ancestry))
+        for ancestor in group_ancestry:
+            cls.__name__ += "\n  {indent}{desc}".format(
+                indent=("  " * ancestor._level),
+                desc=ancestor._description,
+            )
+
+    @classmethod
     def _set_test_descriptions(cls, setup_ancestry):
         """Set the test's normal description and full description.
 
@@ -895,7 +930,10 @@ class GroupTestCase(object):
         teardown_stack = list(reversed(
             cls._helper._level_stack[branching_point:],
         ))
-        for group in teardown_stack:
+        for i, group in enumerate(teardown_stack):
+            # ensure the group description is shown if the teardowns have an
+            # error.
+            cls._set_class_name_for_group(group, "tearDown #{}".format(i))
             for teardown in group._teardowns:
                 teardown()
             cls._helper._level_stack.remove(group)
@@ -904,7 +942,10 @@ class GroupTestCase(object):
 
         cls._set_test_descriptions(setup_ancestry)
 
-        for group in setup_ancestry:
+        for i, group in enumerate(setup_ancestry):
+            # ensure the group description is shown if the setups have an
+            # error.
+            cls._set_class_name_for_group(group, "setUp #{}".format(i))
             for setup in group._setups:
                 if isinstance(group._args, Mapping):
                     setup(**group._args)
@@ -949,7 +990,10 @@ class GroupTestCase(object):
         if cls._teardown_level is not None:
             stop_index = cls._group._ancestry.index(cls._teardown_level) + 1
             teardown_ancestry = cls._group._ancestry[:stop_index]
-            for group in teardown_ancestry:
+            for i, group in enumerate(teardown_ancestry):
+                # ensure the group description is shown if the teardowns have
+                # an error.
+                cls._set_class_name_for_group(group, "tearDown #{}".format(i))
                 for teardown in group._teardowns:
                     teardown()
                 cls._helper._level_stack.remove(group)
