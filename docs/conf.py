@@ -19,41 +19,41 @@ import sphinx_rtd_theme
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath("../"))
 
 
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-# needs_sphinx = '1.0'
+# needs_sphinx = "1.0"
 
-extensions = ['sphinx.ext.autodoc']
+extensions = ["sphinx.ext.autodoc"]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+# source_suffix = [".rst", ".md"]
+source_suffix = ".rst"
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = u'contextional'
-copyright = u'2017, Chris NeJame'
-author = u'Chris NeJame'
+project = "contextional"
+copyright = "2017, Chris NeJame"
+author = "Chris NeJame"
 
-release = u'0.8.3'
+release = "0.8.3"
 
 language = None
 
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
@@ -63,9 +63,9 @@ todo_include_todos = False
 html_theme = "sphinx_rtd_theme"
 
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
-htmlhelp_basename = 'contextionaldoc'
+htmlhelp_basename = "contextionaldoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -74,21 +74,21 @@ latex_elements = {
 }
 
 latex_documents = [
-    (master_doc, 'contextional.tex', u'contextional Documentation',
-     u'Chris NeJame', 'manual'),
+    (master_doc, "contextional.tex", "contextional Documentation",
+     "Chris NeJame", "manual"),
 ]
 
 # -- Options for manual page output ---------------------------------------
 
 man_pages = [
-    (master_doc, 'contextional', u'contextional Documentation',
+    (master_doc, "contextional", "contextional Documentation",
      [author], 1),
 ]
 
 # -- Options for Texinfo output -------------------------------------------
 
 texinfo_documents = [
-    (master_doc, 'contextional', u'contextional Documentation',
-     author, 'contextional', 'One line description of project.',
-     'Miscellaneous'),
+    (master_doc, "contextional", "contextional Documentation",
+     author, "contextional", "One line description of project.",
+     "Miscellaneous"),
 ]
