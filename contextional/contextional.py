@@ -2,6 +2,7 @@ from __future__ import (
     absolute_import,
     with_statement,
 )
+
 import unittest
 import inspect
 from random import getrandbits
@@ -773,13 +774,10 @@ class GroupTestCase(object):
         fixtures, as it points to the specific point in the ancestry that had
         the problem.
         """
-        cls.__name__ = "Contextional Case {}:".format(fixture_label)
-        group_ancestry = list(reversed(group._ancestry))
-        for ancestor in group_ancestry:
-            cls.__name__ += "\n  {indent}{desc}".format(
-                indent=("  " * ancestor._level),
-                desc=ancestor._description,
-            )
+        cls.__name__ = "Contextional Case {}:\n{}".format(
+            fixture_label,
+            group._get_full_ancestry_description(indented=True),
+        )
 
     @classmethod
     def _set_test_descriptions(cls, setup_ancestry):
@@ -864,10 +862,54 @@ class GroupTestCase(object):
                 indentation,
                 level_description,
             )
-        cls._full_description += "\n{}{}".format(
+
+        cls._full_description = "\n{}\n\t{}{}".format(
+            cls._group._get_full_ancestry_description(indented=True),
             (indent * (cls._group._level + 1)),
             cls._case._description,
         )
+
+    @staticmethod
+    def _find_common_ancestry(ancestry_a, ancestry_b):
+        """Common ancestry between two :class:`.Group`s.
+
+        If one :class:`.Group` has an ancestry of:
+
+        .. code-block:: none
+
+            [C, B, A]
+
+        and another has an ancestry of
+
+        .. code-block:: none
+
+            [D, B, A]
+
+        They would have a common ancestry of:
+
+        .. code-block:: none
+
+            [B, A]
+
+        This is useful for determining where two :class:`.Group`s branch off
+        from each other.
+        """
+
+        stack_comp = list(
+            zip(
+                ancestry_a,
+                ancestry_b,
+            ),
+        )
+        branching_point = len(stack_comp)
+        for i, level in enumerate(stack_comp):
+            if level[0] == level[1]:
+                continue
+            else:
+                branching_point = i
+                break
+        common_ancestry = ancestry_a[:branching_point]
+        return common_ancestry
 
     @classmethod
     def setUpClass(cls):
@@ -910,25 +952,20 @@ class GroupTestCase(object):
                     E
                         some test
         """
+
         cls._case = cls._helper._get_next_test()
         cls._group = cls._case._group
         cls._teardown_level = cls._case._teardown_level
-        stack_comp = list(
-            zip(
-                cls._helper._level_stack,
-                list(reversed(cls._group._ancestry)),
-            ),
+        group_ancestry = list(reversed(cls._group._ancestry))
+
+        common_ancestry = cls._find_common_ancestry(
+            group_ancestry,
+            cls._helper._level_stack,
         )
-        branching_point = len(stack_comp)
-        for i, level in enumerate(stack_comp):
-            if level[0] == level[1]:
-                continue
-            else:
-                branching_point = i
-                break
+        common_ancestor_count = len(common_ancestry)
 
         teardown_stack = list(reversed(
-            cls._helper._level_stack[branching_point:],
+            cls._helper._level_stack[common_ancestor_count:],
         ))
         for i, group in enumerate(teardown_stack):
             # ensure the group description is shown if the teardowns have an
@@ -938,7 +975,7 @@ class GroupTestCase(object):
                 teardown()
             cls._helper._level_stack.remove(group)
 
-        setup_ancestry = list(reversed(cls._group._ancestry))[branching_point:]
+        setup_ancestry = group_ancestry[common_ancestor_count:]
 
         cls._set_test_descriptions(setup_ancestry)
 
@@ -1062,6 +1099,55 @@ class Group(object):
             ancestry.append(group)
             group = getattr(group, "_parent", None)
         return ancestry
+
+    def _get_full_ancestry_description(self, indented=False):
+        """The ancestry of a specific :class:`.Group` from ancestor to child.
+
+        If groups are declared like this::
+
+            with such.A("A") as it:
+                with it.having("B"):
+                    with it.having("C"):
+                        # do something
+
+        Group A would be the parent of Group B, and Group B would be the parent
+        of Group C. So the ancestry would look like this:
+
+        .. code-block:: none
+
+            [C, B, A]
+
+        But this returns the formatted version of the ancestry from ancestor to
+        child, as it would appear in the test output. It would look like this
+        for the previous example:
+
+        .. code-block:: none
+
+            A
+              B
+                C
+
+        If ``indented`` is ``True``, then each line will be indented with a
+        single ``\t`` character in addition to the normal indentation based on
+        the level of each :class:`.Group`.
+        """
+
+        padding = "\t" if indented else ""
+        full_desc = ""
+        group_ancestry = list(reversed(self._ancestry))
+        for ancestor in group_ancestry[:-1]:
+            full_desc += "{padding}{indent}{desc}\n".format(
+                padding=padding,
+                indent=("  " * ancestor._level),
+                desc=ancestor._description,
+            )
+        # the last group does not need a new line after it
+        full_desc += "{padding}{indent}{desc}".format(
+            padding=padding,
+            indent=("  " * group_ancestry[-1]._level),
+            desc=group_ancestry[-1]._description,
+        )
+        return full_desc
 
     @property
     def _root_group(self):
