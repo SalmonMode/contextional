@@ -3,6 +3,7 @@ from __future__ import (
     with_statement,
 )
 
+import logging
 import unittest
 import inspect
 from random import getrandbits
@@ -10,6 +11,9 @@ from contextlib import contextmanager
 from copy import deepcopy
 from types import FunctionType
 from collections import Mapping
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Helper(unittest.TestCase):
@@ -667,7 +671,10 @@ class GroupContextManager(object):
 
             MG.create_tests(globals())
         """
+        start_test_count = self._helper._get_test_count()
         self._group._build_test_cases(mod)
+        if self._helper._get_test_count() > start_test_count:
+            self._helper._set_teardown_level_for_last_case(NullGroup)
 
 
 class GroupTestCase(object):
@@ -842,6 +849,7 @@ class GroupTestCase(object):
             -------------------------------------------------------------------
         """
         indent = "  "
+        LOGGER.debug("Setting normal test description.")
         for group in setup_ancestry:
             indentation = (indent * group._level)
             level_description = group._description
@@ -854,6 +862,7 @@ class GroupTestCase(object):
             cls._case._description,
         )
 
+        LOGGER.debug("Setting full test description.")
         full_ancestry = list(reversed(cls._case._group._ancestry))
         for group in full_ancestry:
             indentation = (indent * group._level)
@@ -863,7 +872,7 @@ class GroupTestCase(object):
                 level_description,
             )
 
-        cls._full_description = "\n{}\n\t{}{}".format(
+        cls._full_description = "\n{}\n{}{}".format(
             cls._group._get_full_ancestry_description(indented=True),
             (indent * (cls._group._level + 1)),
             cls._case._description,
@@ -955,6 +964,11 @@ class GroupTestCase(object):
 
         cls._case = cls._helper._get_next_test()
         cls._group = cls._case._group
+        LOGGER.debug(
+            "Setting up group:\n{}".format(
+                cls._group._get_full_ancestry_description(indented=True),
+            ),
+        )
         cls._teardown_level = cls._case._teardown_level
         group_ancestry = list(reversed(cls._group._ancestry))
 
@@ -964,31 +978,63 @@ class GroupTestCase(object):
         )
         common_ancestor_count = len(common_ancestry)
 
-        teardown_stack = list(reversed(
-            cls._helper._level_stack[common_ancestor_count:],
-        ))
-        for i, group in enumerate(teardown_stack):
-            # ensure the group description is shown if the teardowns have an
-            # error.
-            cls._set_class_name_for_group(group, "tearDown #{}".format(i))
-            for teardown in group._teardowns:
-                teardown()
-            cls._helper._level_stack.remove(group)
+        if 0 < common_ancestor_count < len(cls._helper._level_stack):
+            cur_lvl_g = cls._helper._level_stack[-1]
+            common_lvl_g = common_ancestry[-1]
+
+            LOGGER.debug(
+                "Need to teardown leftovers of:\n{}".format(
+                    cur_lvl_g._get_full_ancestry_description(True),
+                ),
+            )
+            LOGGER.debug(
+                "Tearing down to common ancestor:\n{}".format(
+                    common_lvl_g._get_full_ancestry_description(True),
+                ),
+            )
+
+            teardown_stack = list(reversed(
+                cls._helper._level_stack[common_ancestor_count:],
+            ))
+            for group in teardown_stack:
+                LOGGER.debug(
+                    "Running tearDowns for group:\n{}".format(
+                        group._get_full_ancestry_description(indented=True),
+                    ),
+                )
+                # ensure the group description is shown if the teardowns have
+                # an error.
+                for i, teardown in enumerate(group._teardowns):
+                    LOGGER.debug("Running tearDown #{}".format(i))
+                    cls._set_class_name_for_group(
+                        group,
+                        "tearDown #{}".format(i),
+                    )
+                    teardown()
+                cls._helper._level_stack.remove(group)
 
         setup_ancestry = group_ancestry[common_ancestor_count:]
 
         cls._set_test_descriptions(setup_ancestry)
 
-        for i, group in enumerate(setup_ancestry):
+        for group in setup_ancestry:
             # ensure the group description is shown if the setups have an
             # error.
-            cls._set_class_name_for_group(group, "setUp #{}".format(i))
-            for setup in group._setups:
+            LOGGER.debug(
+                "Running setUps for group:\n{}".format(
+                    group._get_full_ancestry_description(indented=True),
+                ),
+            )
+            for i, setup in enumerate(group._setups):
+                LOGGER.debug("Running setUp #{}".format(i))
+                cls._set_class_name_for_group(group, "setUp #{}".format(i))
                 if isinstance(group._args, Mapping):
                     setup(**group._args)
                 else:
                     setup(*group._args)
             cls._helper._level_stack.append(group)
+
+        LOGGER.debug("Setups complete.")
 
     def setUp(self):
         """The preparations required to be run before each test in the group.
@@ -999,21 +1045,39 @@ class GroupTestCase(object):
         output provides the complete context for this test case.
         """
         self._case._test_started = True
-        for setup in self._group._test_setups:
+        LOGGER.debug(
+            "Running test setUps for test:\n{}\n{}{}".format(
+                self._group._get_full_ancestry_description(indented=True),
+                ("  " * (self._group._level + 1)),
+                self._case._description,
+            ),
+        )
+        for i, setup in enumerate(self._group._test_setups):
+            LOGGER.debug("Running test setUp #{}".format(i))
             args, _, _, _ = inspect.getargspec(setup)
             if args:
                 setup(self)
             else:
                 setup()
+        LOGGER.debug("Test setups complete.")
 
     def tearDown(self):
         """The cleanup required to be run after each test in the group."""
-        for teardown in self._group._test_teardowns:
+        LOGGER.debug(
+            "Running test tearDowns for test:\n{}\n{}{}".format(
+                self._group._get_full_ancestry_description(indented=True),
+                ("  " * (self._group._level + 1)),
+                self._case._description,
+            ),
+        )
+        for i, teardown in enumerate(self._group._test_teardowns):
+            LOGGER.debug("Running test tearDown #{}".format(i))
             args, _, _, _ = inspect.getargspec(teardown)
             if args:
                 teardown(self)
             else:
                 teardown()
+        LOGGER.debug("Test teardowns complete.")
 
     @classmethod
     def tearDownClass(cls):
@@ -1025,17 +1089,57 @@ class GroupTestCase(object):
         from the :attr:`._helper`\ 's :attr:`._level_stack`.
         """
         if cls._teardown_level is not None:
-            stop_index = cls._group._ancestry.index(cls._teardown_level) + 1
-            teardown_ancestry = cls._group._ancestry[:stop_index]
-            for i, group in enumerate(teardown_ancestry):
-                # ensure the group description is shown if the teardowns have
-                # an error.
-                cls._set_class_name_for_group(group, "tearDown #{}".format(i))
-                for teardown in group._teardowns:
-                    teardown()
+            cur_lvl_g = cls._helper._level_stack[-1]
+            LOGGER.debug(
+                "Tearing down:\n{}".format(
+                    cur_lvl_g._get_full_ancestry_description(True),
+                ),
+            )
+            teardown_ancestry = cls._group._ancestry
+            if cls._teardown_level is NullGroup:
+                LOGGER.debug(
+                    (
+                        "No more remaining tests in GroupContextManager. "
+                        "Running all tearDowns."
+                    ),
+                )
+            else:
+                common_lvl_g = cls._teardown_level
+                LOGGER.debug(
+                    "Tearing down to common ancestor:\n{}"
+                    .format(
+                        common_lvl_g._get_full_ancestry_description(True),
+                    ),
+                )
+                stop_index = cls._group._ancestry.index(common_lvl_g)
+                teardown_ancestry = cls._group._ancestry[:stop_index]
+            for group in teardown_ancestry:
+                if group._teardowns:
+                    LOGGER.debug(
+                        "Running tearDowns for group:\n{}".format(
+                            group._get_full_ancestry_description(True),
+                        ),
+                    )
+                    # ensure the group description is shown if the teardowns
+                    # have an error.
+                    for i, teardown in enumerate(group._teardowns):
+                        LOGGER.debug("Running tearDown #{}".format(i))
+                        cls._set_class_name_for_group(
+                            group,
+                            "tearDown #{}".format(i),
+                        )
+                        teardown()
                 cls._helper._level_stack.remove(group)
+        LOGGER.debug("Teardowns complete.")
 
     def runTest(self):
+        LOGGER.debug(
+            "Running test:\n{}\n{}{}".format(
+                self._group._get_full_ancestry_description(indented=True),
+                ("  " * (self._group._level + 1)),
+                self._case._description,
+            ),
+        )
         # Execute the actual test case function.
         self._case(self)
 
@@ -1044,7 +1148,7 @@ TEST_CLASS_NAME_TEMPLATE = "ContextionalCase_{}"
 
 
 class Group(object):
-    """A group of tests, with common fixtures and description"""
+    """A group of tests, with common fixtures and description."""
 
     _helper = helper
 
@@ -1127,12 +1231,12 @@ class Group(object):
               B
                 C
 
-        If ``indented`` is ``True``, then each line will be indented with a
-        single ``\t`` character in addition to the normal indentation based on
-        the level of each :class:`.Group`.
+        If ``indented`` is ``True``, then each line will be indented with two
+        spaces in addition to the normal indentation based on the level of
+        each :class:`.Group`.
         """
 
-        padding = "\t" if indented else ""
+        padding = "  " if indented else ""
         full_desc = ""
         group_ancestry = list(reversed(self._ancestry))
         for ancestor in group_ancestry[:-1]:
@@ -1166,7 +1270,6 @@ class Group(object):
         branches, then it's considered useless, and nothing will happen with
         it, even if it has setups or teardowns.
         """
-        start_test_count = self._helper._get_test_count()
         if self._cases:
             # build test cases
             bases = (
@@ -1180,12 +1283,13 @@ class Group(object):
                 _test.__module__ = mod['__name__']
                 mod[_test.__name__] = _test
 
+        start_test_count = self._helper._get_test_count()
         for child in self._children:
             child._build_test_cases(mod)
-
-        end_test_count = self._helper._get_test_count()
-        if end_test_count > start_test_count:
-            self._helper._set_teardown_level_for_last_case(self)
+            end_test_count = self._helper._get_test_count()
+            if end_test_count > start_test_count:
+                self._helper._set_teardown_level_for_last_case(self)
+                start_test_count = end_test_count
 
     def _add_child(self, child_description):
         """Add a child :class:`.Group` instance to the current group.
@@ -1197,6 +1301,18 @@ class Group(object):
         child = Group(child_description, parent=self)
         self._children.append(child)
         return child
+
+
+class NullGroup(object):
+    """Represents the ultimate teardown level.
+
+    This class is only used as a :class:`.Case`'s :attr:`._teardown_level` to
+    signal that it is the very last one in the :class:`GroupContextManager`,
+    so all teardowns should be run once it is complete, and the
+    :class:`.Helper`'s :attr:`_level_stack` should then be empty.
+    """
+
+    pass
 
 
 class Case(object):
