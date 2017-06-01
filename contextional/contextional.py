@@ -1019,6 +1019,8 @@ class GroupTestCase(object):
                         setup(**group._args)
                     else:
                         setup(*group._args)
+                    LOGGER.debug("setUp #{} complete.".format(i))
+                LOGGER.debug("Done setting up group.")
                 cls._helper._level_stack.append(group)
 
         LOGGER.debug("Setups complete.")
@@ -1046,6 +1048,7 @@ class GroupTestCase(object):
                 setup(self)
             else:
                 setup()
+            LOGGER.debug("test setUp #{} complete.".format(i))
         LOGGER.debug("Test setups complete.")
 
     def tearDown(self):
@@ -1064,6 +1067,7 @@ class GroupTestCase(object):
                 teardown(self)
             else:
                 teardown()
+            LOGGER.debug("test tearDown #{} complete.".format(i))
         LOGGER.debug("Test teardowns complete.")
 
     @classmethod
@@ -1075,12 +1079,19 @@ class GroupTestCase(object):
         be run, and the branches (groups) being stepped out of must be removed
         from the :attr:`._helper`\ 's :attr:`._level_stack`.
         """
-        LOGGER.debug(
-            "Tearing down:\n{}".format(
-                cls._group._get_full_ancestry_description(True),
-            ),
-        )
-        cls._teardown_to_level(cls._case._teardown_level)
+        td_lvl = cls._case._teardown_level
+        if td_lvl is not None:
+            if td_lvl is NullGroup:
+                end_desc = "  (Null)"
+            else:
+                end_desc = td_lvl._get_full_ancestry_description(True)
+            LOGGER.debug(
+                "Tearing down group:\n{}\nto:\n{}".format(
+                    cls._group._get_full_ancestry_description(True),
+                    end_desc,
+                ),
+            )
+            cls._teardown_to_level(cls._case._teardown_level)
 
     @classmethod
     def _teardown_to_level(cls, teardown_level):
@@ -1111,8 +1122,10 @@ class GroupTestCase(object):
                             "tearDown #{}".format(i),
                         )
                         teardown()
+                    LOGGER.debug("tearDown #{} complete.".format(i))
+                LOGGER.debug("Done tearing down group.")
                 cls._helper._level_stack.remove(group)
-        LOGGER.debug("Teardowns complete.")
+            LOGGER.debug("Teardowns complete.")
 
     def runTest(self):
         LOGGER.debug(
@@ -1124,6 +1137,7 @@ class GroupTestCase(object):
         )
         # Execute the actual test case function.
         self._case(self)
+        LOGGER.debug("Test completed.")
 
 
 TEST_CLASS_NAME_TEMPLATE = "ContextionalCase_{}"
