@@ -30,6 +30,25 @@ class Helper(unittest.TestCase):
         self._level_stack = []
         self._cases = []
 
+    def __del__(self):
+        self._clear_stack()
+
+    def _clear_stack(self):
+        """Teardown the groups that are still in the level stack."""
+        teardown_groups = self._level_stack[::-1]
+        for group in teardown_groups:
+            if group._teardowns:
+                LOGGER.debug(
+                    "Running tearDowns for group:\n{}".format(
+                        group._get_full_ancestry_description(True),
+                    ),
+                )
+                for i, teardown in enumerate(group._teardowns):
+                    LOGGER.debug("Running tearDown #{}".format(i))
+                    teardown()
+            self._level_stack.remove(group)
+        LOGGER.debug("Teardowns complete.")
+
     def _get_test_count(self):
         """The number of test cases created at the current moment."""
         return len(self._cases)
@@ -849,22 +868,23 @@ class GroupTestCase(object):
             -------------------------------------------------------------------
         """
         indent = "  "
+
         LOGGER.debug("Setting normal test description.")
         for group in setup_ancestry:
-            indentation = (indent * group._level)
-            level_description = group._description
-            cls._description += "{}{}\n".format(
-                indentation,
-                level_description,
-            )
+            if group not in cls._helper._level_stack:
+                indentation = (indent * group._level)
+                level_description = group._description
+                cls._description += "{}{}\n".format(
+                    indentation,
+                    level_description,
+                )
         cls._description += "{}{}".format(
             (indent * (cls._group._level + 1)),
             cls._case._description,
         )
 
         LOGGER.debug("Setting full test description.")
-        full_ancestry = list(reversed(cls._case._group._ancestry))
-        for group in full_ancestry:
+        for group in setup_ancestry:
             indentation = (indent * group._level)
             level_description = group._description
             cls._full_description += "\n{}{}".format(
@@ -879,7 +899,7 @@ class GroupTestCase(object):
         )
 
     @staticmethod
-    def _find_common_ancestry(ancestry_a, ancestry_b):
+    def _find_common_ancestor(ancestry_a, ancestry_b):
         """Common ancestry between two :class:`.Group`s.
 
         If one :class:`.Group` has an ancestry of:
@@ -917,8 +937,10 @@ class GroupTestCase(object):
             else:
                 branching_point = i
                 break
-        common_ancestry = ancestry_a[:branching_point]
-        return common_ancestry
+        common_ancestor = NullGroup
+        if branching_point > 0:
+            common_ancestor = ancestry_a[branching_point - 1]
+        return common_ancestor
 
     @classmethod
     def setUpClass(cls):
@@ -969,70 +991,35 @@ class GroupTestCase(object):
                 cls._group._get_full_ancestry_description(indented=True),
             ),
         )
-        cls._teardown_level = cls._case._teardown_level
-        group_ancestry = list(reversed(cls._group._ancestry))
 
-        common_ancestry = cls._find_common_ancestry(
-            group_ancestry,
-            cls._helper._level_stack,
+        setup_ancestry = list(reversed(cls._group._ancestry))
+
+        cls._teardown_to_level(
+            cls._find_common_ancestor(
+                cls._helper._level_stack,
+                setup_ancestry,
+            ),
         )
-        common_ancestor_count = len(common_ancestry)
-
-        if 0 < common_ancestor_count < len(cls._helper._level_stack):
-            cur_lvl_g = cls._helper._level_stack[-1]
-            common_lvl_g = common_ancestry[-1]
-
-            LOGGER.debug(
-                "Need to teardown leftovers of:\n{}".format(
-                    cur_lvl_g._get_full_ancestry_description(True),
-                ),
-            )
-            LOGGER.debug(
-                "Tearing down to common ancestor:\n{}".format(
-                    common_lvl_g._get_full_ancestry_description(True),
-                ),
-            )
-
-            teardown_stack = list(reversed(
-                cls._helper._level_stack[common_ancestor_count:],
-            ))
-            for group in teardown_stack:
-                LOGGER.debug(
-                    "Running tearDowns for group:\n{}".format(
-                        group._get_full_ancestry_description(indented=True),
-                    ),
-                )
-                # ensure the group description is shown if the teardowns have
-                # an error.
-                for i, teardown in enumerate(group._teardowns):
-                    LOGGER.debug("Running tearDown #{}".format(i))
-                    cls._set_class_name_for_group(
-                        group,
-                        "tearDown #{}".format(i),
-                    )
-                    teardown()
-                cls._helper._level_stack.remove(group)
-
-        setup_ancestry = group_ancestry[common_ancestor_count:]
 
         cls._set_test_descriptions(setup_ancestry)
 
         for group in setup_ancestry:
-            # ensure the group description is shown if the setups have an
-            # error.
-            LOGGER.debug(
-                "Running setUps for group:\n{}".format(
-                    group._get_full_ancestry_description(indented=True),
-                ),
-            )
-            for i, setup in enumerate(group._setups):
-                LOGGER.debug("Running setUp #{}".format(i))
-                cls._set_class_name_for_group(group, "setUp #{}".format(i))
-                if isinstance(group._args, Mapping):
-                    setup(**group._args)
-                else:
-                    setup(*group._args)
-            cls._helper._level_stack.append(group)
+            if group not in cls._helper._level_stack:
+                # ensure the group description is shown if the setups have an
+                # error.
+                LOGGER.debug(
+                    "Running setUps for group:\n{}".format(
+                        group._get_full_ancestry_description(indented=True),
+                    ),
+                )
+                for i, setup in enumerate(group._setups):
+                    LOGGER.debug("Running setUp #{}".format(i))
+                    cls._set_class_name_for_group(group, "setUp #{}".format(i))
+                    if isinstance(group._args, Mapping):
+                        setup(**group._args)
+                    else:
+                        setup(*group._args)
+                cls._helper._level_stack.append(group)
 
         LOGGER.debug("Setups complete.")
 
@@ -1088,32 +1075,27 @@ class GroupTestCase(object):
         be run, and the branches (groups) being stepped out of must be removed
         from the :attr:`._helper`\ 's :attr:`._level_stack`.
         """
-        if cls._teardown_level is not None:
-            cur_lvl_g = cls._helper._level_stack[-1]
-            LOGGER.debug(
-                "Tearing down:\n{}".format(
-                    cur_lvl_g._get_full_ancestry_description(True),
-                ),
-            )
-            teardown_ancestry = cls._group._ancestry
-            if cls._teardown_level is NullGroup:
-                LOGGER.debug(
-                    (
-                        "No more remaining tests in GroupContextManager. "
-                        "Running all tearDowns."
-                    ),
-                )
+        LOGGER.debug(
+            "Tearing down:\n{}".format(
+                cls._group._get_full_ancestry_description(True),
+            ),
+        )
+        cls._teardown_to_level(cls._case._teardown_level)
+
+    @classmethod
+    def _teardown_to_level(cls, teardown_level):
+        if teardown_level is not None:
+            if teardown_level is NullGroup:
+                stop_index = None
             else:
-                common_lvl_g = cls._teardown_level
-                LOGGER.debug(
-                    "Tearing down to common ancestor:\n{}"
-                    .format(
-                        common_lvl_g._get_full_ancestry_description(True),
-                    ),
-                )
-                stop_index = cls._group._ancestry.index(common_lvl_g)
-                teardown_ancestry = cls._group._ancestry[:stop_index]
-            for group in teardown_ancestry:
+                try:
+                    stop_index = cls._helper._level_stack.index(teardown_level)
+                except IndexError:
+                    raise IndexError(
+                        "Cannot teardown to desired level from current stack.",
+                    )
+            teardown_groups = cls._helper._level_stack[:stop_index:-1]
+            for group in teardown_groups:
                 if group._teardowns:
                     LOGGER.debug(
                         "Running tearDowns for group:\n{}".format(
