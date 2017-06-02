@@ -978,7 +978,7 @@ class GroupTestCase(object):
 
         cls._full_description = "\n{}\n{}{}".format(
             cls._group._get_full_ancestry_description(indented=True),
-            (indent * (cls._group._level + 1)),
+            (indent * (cls._group._level + 2)),
             cls._case._description,
         )
 
