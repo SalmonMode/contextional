@@ -80,10 +80,30 @@ class GroupContextManager(object):
 
     :param description: The description for the group of the current context.
     :type descrition: str.
+    :param cascading_failure: Cascade the failure to all tests within the root
+        group (including those in descendant groups).
+    :type descrition: bool.
 
     A group manager is used to handle constructing groups, their fixtures,
     child groups, and tests through the various decorators and methods
     it provides.
+
+    If `cascading_failure` is `True`, and one of the setUps for the group
+    throws an error or one of the tests for the group fails or throws an
+    error, then, of the remaining setUps and tests within this group
+    (including those of descendant groups), the setUps will be skipped, and
+    the tests will automatically fail.
+
+    In the event of a cascading failure, all tearDowns of this group (but
+    not the descendant groups) will still be run, so, if there are any,
+    they should be able to handle a situation where one or more of the
+    setUps for this group didn't run all the way through without any
+    problems.
+
+    A cascading failure can only be triggered by a setUp or test that
+    exists at the top level of this group. If a setUp or test of a
+    descendant group has an issue, it will not cause a cascading failure of
+    this group.
 
     Example::
 
@@ -98,8 +118,8 @@ class GroupContextManager(object):
 
     _helper = helper
 
-    def __init__(self, description):
-        self._group = Group(description)
+    def __init__(self, description, cascading_failure=False):
+        self._group = Group(description, cascading_failure=cascading_failure)
 
     def __enter__(self):
         """Provide the context manager when entering the context."""
@@ -168,13 +188,33 @@ class GroupContextManager(object):
             return decorator
 
     @contextmanager
-    def add_group(self, description, params=()):
+    def add_group(self, description, cascading_failure=False, params=()):
         """Use a new child group of the parent group for this context.
 
         :param description: The description of the group for the context
         :type description: str
+        :param cascading_failure: Cascade the failure to all tests within this
+            group (including those in descendant groups).
+        :type descrition: bool.
         :param params: The collection of sets of parameters
         :type params: collection
+
+        If `cascading_failure` is `True`, and one of the setUps for the group
+        throws an error or one of the tests for the group fails or throws an
+        error, then, of the remaining setUps and tests within this group
+        (including those of descendant groups), the setUps will be skipped, and
+        the tests will automatically fail.
+
+        In the event of a cascading failure, all tearDowns of this group (but
+        not the descendant groups) will still be run, so, if there are any,
+        they should be able to handle a situation where one or more of the
+        setUps for this group didn't run all the way through without any
+        problems.
+
+        A cascading failure can only be triggered by a setUp or test that
+        exists at the top level of this group. If a setUp or test of a
+        descendant group has an issue, it will not cause a cascading failure of
+        this group.
 
         If provided with parameters, a duplicate group will be made for each
         set of parameters (if any are provided) where each set of parameters is
@@ -243,7 +283,7 @@ class GroupContextManager(object):
 
         """
         last_group = self._group
-        self._group = last_group._add_child(description)
+        self._group = last_group._add_child(description, cascading_failure)
         yield self
 
         no_params = params == ()
@@ -1030,43 +1070,86 @@ class GroupTestCase(object):
 
         cls._case = cls._helper._get_next_test()
         cls._group = cls._case._group
+        setup_ancestry = list(reversed(cls._group._ancestry))
+        cls._set_test_descriptions(setup_ancestry)
+
+        cls._auto_fail = False
+        cls._cascading_failure = cls._group._cascading_failure
+        for group in cls._group._ancestry:
+            cls._auto_fail = group._cascading_failure_in_progress
+            if cls._auto_fail is True:
+                break
+
+        if cls._auto_fail:
+            LOGGER.debug(
+                "CASCADING FAILURE - Not setting up group:\n{}".format(
+                    cls._group._get_full_ancestry_description(indented=True),
+                ),
+            )
+
+            for group in setup_ancestry:
+                if group not in cls._helper._level_stack:
+                    cls._helper._level_stack.append(group)
+            return
         LOGGER.debug(
             "Setting up group:\n{}".format(
                 cls._group._get_full_ancestry_description(indented=True),
             ),
         )
 
-        setup_ancestry = list(reversed(cls._group._ancestry))
-
-        cls._teardown_to_level(
-            cls._find_common_ancestor(
-                cls._helper._level_stack,
-                setup_ancestry,
-            ),
-        )
-
-        cls._set_test_descriptions(setup_ancestry)
-
-        for group in setup_ancestry:
-            if group not in cls._helper._level_stack:
-                # ensure the group description is shown if the setups have an
-                # error.
-                LOGGER.debug(
-                    "Running setUps for group:\n{}".format(
-                        group._get_full_ancestry_description(indented=True),
+        try:
+            try:
+                cls._teardown_to_level(
+                    cls._find_common_ancestor(
+                        cls._helper._level_stack,
+                        setup_ancestry,
                     ),
                 )
-                for i, setup in enumerate(group._setups):
-                    LOGGER.debug("Running setUp #{}".format(i))
-                    cls._set_class_name_for_group(group, "setUp #{}".format(i))
-                    if isinstance(group._args, Mapping):
-                        setup(**group._args)
-                    else:
-                        setup(*group._args)
-                    LOGGER.debug("setUp #{} complete.".format(i))
-                LOGGER.debug("Done setting up group.")
-                cls._helper._level_stack.append(group)
+            except Exception:
+                LOGGER.error(
+                    "Couldn't teardown to common point due to exception.",
+                    exc_info=True,
+                )
+                raise
 
+            for group in setup_ancestry:
+                if group not in cls._helper._level_stack:
+                    # ensure the group description is shown if the setups have
+                    # an error.
+                    LOGGER.debug(
+                        "Running setUps for group:\n{}".format(
+                            group._get_full_ancestry_description(
+                                indented=True,
+                            ),
+                        ),
+                    )
+                    for i, setup in enumerate(group._setups):
+                        LOGGER.debug("Running setUp #{}".format(i))
+                        cls._set_class_name_for_group(
+                            group,
+                            "setUp #{}".format(i),
+                        )
+                        if isinstance(group._args, Mapping):
+                            setup(**group._args)
+                        else:
+                            setup(*group._args)
+                        LOGGER.debug("setUp #{} complete.".format(i))
+                    LOGGER.debug("Done setting up group.")
+                    cls._helper._level_stack.append(group)
+        except Exception:
+            LOGGER.error(
+                "Couldn't complete setups for the group due to exception.",
+                exc_info=True,
+            )
+            if cls._group._cascading_failure:
+                LOGGER.debug("Preparing for cascading failure.")
+                cls._auto_fail = True
+                cls._group._cascading_failure_in_progress = True
+
+                for group in setup_ancestry:
+                    if group not in cls._helper._level_stack:
+                        cls._helper._level_stack.append(group)
+            raise
         LOGGER.debug("Setups complete.")
 
     def setUp(self):
@@ -1078,6 +1161,15 @@ class GroupTestCase(object):
         output provides the complete context for this test case.
         """
         self._case._test_started = True
+        if self._auto_fail is True:
+            LOGGER.debug(
+                "CASCADING FAILURE - Not setting up for test:\n{}".format(
+                    self._group._get_full_ancestry_description(indented=True),
+                    ("  " * (self._group._level + 1)),
+                    self._case._description,
+                ),
+            )
+            return
         LOGGER.debug(
             "Running test setUps for test:\n{}\n{}{}".format(
                 self._group._get_full_ancestry_description(indented=True),
@@ -1085,18 +1177,38 @@ class GroupTestCase(object):
                 self._case._description,
             ),
         )
-        for i, setup in enumerate(self._group._test_setups):
-            LOGGER.debug("Running test setUp #{}".format(i))
-            args, _, _, _ = inspect.getargspec(setup)
-            if args:
-                setup(self)
-            else:
-                setup()
-            LOGGER.debug("test setUp #{} complete.".format(i))
+        try:
+            for i, setup in enumerate(self._group._test_setups):
+                LOGGER.debug("Running test setUp #{}".format(i))
+                args, _, _, _ = inspect.getargspec(setup)
+                if args:
+                    setup(self)
+                else:
+                    setup()
+                LOGGER.debug("test setUp #{} complete.".format(i))
+        except Exception:
+            LOGGER.error(
+                "Couldn't complete setups for the test due to exception.",
+                exc_info=True,
+            )
+            if self._group._cascading_failure:
+                LOGGER.debug("Preparing for cascading failure.")
+                self.__class__._auto_fail = True
+                self._group._cascading_failure_in_progress = True
+            raise
         LOGGER.debug("Test setups complete.")
 
     def tearDown(self):
         """The cleanup required to be run after each test in the group."""
+        if self._auto_fail is True:
+            LOGGER.debug(
+                "CASCADING FAILURE - Not tearing down test:\n{}".format(
+                    self._group._get_full_ancestry_description(indented=True),
+                    ("  " * (self._group._level + 1)),
+                    self._case._description,
+                ),
+            )
+            return
         LOGGER.debug(
             "Running test tearDowns for test:\n{}\n{}{}".format(
                 self._group._get_full_ancestry_description(indented=True),
@@ -1104,14 +1216,25 @@ class GroupTestCase(object):
                 self._case._description,
             ),
         )
-        for i, teardown in enumerate(self._group._test_teardowns):
-            LOGGER.debug("Running test tearDown #{}".format(i))
-            args, _, _, _ = inspect.getargspec(teardown)
-            if args:
-                teardown(self)
-            else:
-                teardown()
-            LOGGER.debug("test tearDown #{} complete.".format(i))
+        try:
+            for i, teardown in enumerate(self._group._test_teardowns):
+                LOGGER.debug("Running test tearDown #{}".format(i))
+                args, _, _, _ = inspect.getargspec(teardown)
+                if args:
+                    teardown(self)
+                else:
+                    teardown()
+                LOGGER.debug("test tearDown #{} complete.".format(i))
+        except Exception:
+            LOGGER.error(
+                "Couldn't complete teardowns for the test due to exception.",
+                exc_info=True,
+            )
+            if self._group._cascading_failure:
+                LOGGER.debug("Preparing for cascading failure.")
+                self.__class__._auto_fail = True
+                self._group._cascading_failure_in_progress = True
+            raise
         LOGGER.debug("Test teardowns complete.")
 
     @classmethod
@@ -1129,6 +1252,23 @@ class GroupTestCase(object):
                 end_desc = "  (Null)"
             else:
                 end_desc = td_lvl._get_full_ancestry_description(True)
+            if cls._auto_fail and cls._group._cascading_failure is False:
+                LOGGER.debug(
+                    "CASCADING FAILURE - Not tearing down group:\n{}\nto:\n{}"
+                    .format(
+                        cls._group._get_full_ancestry_description(True),
+                        end_desc,
+                    ),
+                )
+                if td_lvl is NullGroup:
+                    stop_index = None
+                else:
+                    stop_index = cls._helper._level_stack.index(td_lvl)
+                teardown_groups = cls._helper._level_stack[:stop_index:-1]
+                for group in teardown_groups:
+                    if group in cls._helper._level_stack:
+                        cls._helper._level_stack.remove(group)
+                return
             LOGGER.debug(
                 "Tearing down group:\n{}\nto:\n{}".format(
                     cls._group._get_full_ancestry_description(True),
@@ -1172,6 +1312,15 @@ class GroupTestCase(object):
             LOGGER.debug("Teardowns complete.")
 
     def runTest(self):
+        if self._auto_fail is True:
+            LOGGER.debug(
+                "CASCADING FAILURE - Not running test:\n{}".format(
+                    self._group._get_full_ancestry_description(indented=True),
+                    ("  " * (self._group._level + 1)),
+                    self._case._description,
+                ),
+            )
+            self.fail("CASCADING FAILURE")
         LOGGER.debug(
             "Running test:\n{}\n{}{}".format(
                 self._group._get_full_ancestry_description(indented=True),
@@ -1180,8 +1329,19 @@ class GroupTestCase(object):
             ),
         )
         # Execute the actual test case function.
-        self._case(self)
-        LOGGER.debug("Test completed.")
+        try:
+            self._case(self)
+        except Exception:
+            LOGGER.error(
+                "Test completed unsuccessfully.",
+                exc_info=True,
+            )
+            if self._group._cascading_failure:
+                LOGGER.debug("Preparing for cascading failure.")
+                self.__class__._auto_fail = True
+                self._group._cascading_failure_in_progress = True
+            raise
+        LOGGER.debug("Test completed successfully.")
 
 
 TEST_CLASS_NAME_TEMPLATE = "ContextionalCase_{}"
@@ -1192,9 +1352,12 @@ class Group(object):
 
     _helper = helper
 
-    def __init__(self, description, args=(), parent=None):
+    def __init__(self, description, cascading_failure=False, args=(),
+                 parent=None):
         self._description = description
         self._parent = parent
+        self._cascading_failure = cascading_failure
+        self._cascading_failure_in_progress = False
         self._args = args
         self._cases = []
         self._setups = []
@@ -1331,14 +1494,18 @@ class Group(object):
                 self._helper._set_teardown_level_for_last_case(self)
                 start_test_count = end_test_count
 
-    def _add_child(self, child_description):
+    def _add_child(self, child_description, cascading_failure=False):
         """Add a child :class:`.Group` instance to the current group.
 
         The child :class:`.Group` must be appended to the current
         :class:`.Group`\ 's list of children, and it must be aware that the
         current :class:`.Group` is its parent.
         """
-        child = Group(child_description, parent=self)
+        child = Group(
+            child_description,
+            cascading_failure=cascading_failure,
+            parent=self,
+        )
         self._children.append(child)
         return child
 
