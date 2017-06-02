@@ -537,19 +537,20 @@ class GroupContextManager(object):
             if name.startswith("assert"):
                 setattr(Helper, name, method)
 
-    def includes(self, context):
+    def includes(self, *contexts):
         """Graft a :class:`.GroupContextManager` group structure here.
 
-        :param context:
-            A :class:`.GroupContextManager` object containing the group
-            structure you want to include in the group of the current context
-        :type context: :class:`.GroupContextManager`
+        :param contexts:
+            The :class:`.GroupContextManager` objects that contain the group
+            structures you want to include in the group of the current context,
+            in the order they are listed.
+        :type contexts: :class:`.GroupContextManager`
 
-        Take the root group of a :class:`.GroupContextManager` instance, make a
-        deepcopy of it, and append it to this :class:`.GroupContextManager`'s
-        current group's children so that copies of all of its tests get run
-        within the context of the current group in the order and structure they
-        were originally defined in.
+        For each :class:`.GroupContextManager` instance that was passed, take
+        the root group of a it, make a deepcopy of it, and append it to this
+        :class:`.GroupContextManager`'s current group's children so that copies
+        of all of its tests get run within the context of the current group in
+        the order and structure they were originally defined in.
 
         Example::
 
@@ -564,6 +565,10 @@ class GroupContextManager(object):
 
                 with PG.add_group("Sub Group"):
 
+                    @PG.add_teardown
+                    def tearDown():
+                        PG.value = 2
+
                     @PG.add_test("value is still 1")
                     def test(case):
                         case.assertEqual(
@@ -571,13 +576,25 @@ class GroupContextManager(object):
                             1,
                         )
 
+            with GroupContextManager("Another Predefined Group") as APG:
+
+                @APG.add_test("value is now 2")
+                def test(case):
+                    case.assertEqual(
+                        APG.value,
+                        2,
+                    )
+
             with GroupContextManager("Main Group") as MG:
 
                 @MG.add_setup
                 def setUp():
                     MG.value = 1
 
-                MG.includes(PG)
+                MG.includes(
+                    PG,
+                    APG,
+                )
 
         Output:
 
@@ -588,24 +605,31 @@ class GroupContextManager(object):
                 value is 1 ... ok
                 Sub Group
                   value is still 1 ... ok
+              AnotherPredefined Group
+                value is now 2 ... ok
         """
-        if not isinstance(context, GroupContextManager):
-            raise TypeError("method only accepts GroupContextManager objects")
-        group_copy = deepcopy(context._group)
-        group_copy._parent = self._group
-        self._group._children.append(group_copy)
+        for context in contexts:
+            if not isinstance(context, GroupContextManager):
+                raise TypeError(
+                    "method only accepts GroupContextManager objects",
+                )
+            group_copy = deepcopy(context._group)
+            group_copy._parent = self._group
+            self._group._children.append(group_copy)
 
-    def combine(self, context):
+    def combine(self, *contexts):
         """Use the contents of a :class:`.GroupContextManager`'s root group.
 
-        :param context:
-            A :class:`.GroupContextManager` object containing the group
-            structure you want to combine with the group of the current context
-        :type context: :class:`.GroupContextManager`
+        :param contexts:
+            The :class:`.GroupContextManager` objects containing the group
+            structures you want to combine with the group of the current
+            context.
+        :type contexts: :class:`.GroupContextManager`
 
-        Take the root group of a :class:`.GroupContextManager` instance, make a
-        deepcopy of it, and append each of its tests, fixtures, and child
-        groups to the respective lists of the group of the current context.
+        For each :class:`.GroupContextManager` instance that was passed, take
+        the root group of a it, make a deepcopy of it, and append each of its
+        tests, fixtures, and child groups to the respective lists of the group
+        of the current context.
 
         Example::
 
@@ -620,6 +644,10 @@ class GroupContextManager(object):
 
                 with PG.add_group("Sub Group"):
 
+                    @PG.add_teardown
+                    def tearDown():
+                        PG.value = 2
+
                     @PG.add_test("value is still 1")
                     def test(case):
                         case.assertEqual(
@@ -627,13 +655,25 @@ class GroupContextManager(object):
                             1,
                         )
 
+            with GroupContextManager("Another Predefined Group") as APG:
+
+                @APG.add_test("value is still 1 here")
+                def test(case):
+                    case.assertEqual(
+                        APG.value,
+                        1,
+                    )
+
             with GroupContextManager("Main Group") as MG:
 
                 @MG.add_setup
                 def setUp():
                     MG.value = 1
 
-                MG.combine(PG)
+                MG.combine(
+                    PG,
+                    APG,
+                )
 
         Output:
 
@@ -641,22 +681,26 @@ class GroupContextManager(object):
 
             Main Group
               value is 1 ... ok
+              value is now 2 ... FAIL
               Sub Group
                 value is still 1 ... ok
         """
-        if not isinstance(context, GroupContextManager):
-            raise TypeError("method only accepts GroupContextManager objects")
-        group_copy = deepcopy(context._group)
-        self._group._setups += group_copy._setups
-        self._group._test_setups += group_copy._test_setups
-        for case in group_copy._cases:
-            case._group = self._group
-            self._group._cases.append(case)
-        self._group._test_teardowns += group_copy._test_teardowns
-        self._group._teardowns += group_copy._teardowns
-        for child in group_copy._children:
-            child._parent = self._group
-            self._group._children.append(child)
+        for context in contexts:
+            if not isinstance(context, GroupContextManager):
+                raise TypeError(
+                    "method only accepts GroupContextManager objects",
+                )
+            group_copy = deepcopy(context._group)
+            self._group._setups += group_copy._setups
+            self._group._test_setups += group_copy._test_setups
+            for case in group_copy._cases:
+                case._group = self._group
+                self._group._cases.append(case)
+            self._group._test_teardowns += group_copy._test_teardowns
+            self._group._teardowns += group_copy._teardowns
+            for child in group_copy._children:
+                child._parent = self._group
+                self._group._children.append(child)
 
     def create_tests(self, mod):
         """Create the tests that will be discovered by the testing framework.
