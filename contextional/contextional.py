@@ -22,8 +22,8 @@ class Helper(unittest.TestCase):
     Most, if not all objects that have the Helper instance as an attribute will
     have custom __getattr__, __setattr__, and __delattr__ methods that defer
     most attribute requests to this helper to enure that they have access to
-    the `unittest.TestCase` assert methods and any objects that the helper is
-    holding.
+    the :class:`unittest.TestCase` assert methods and any objects that the
+    helper is holding.
     """
 
     def __init__(self):
@@ -88,7 +88,7 @@ class GroupContextManager(object):
     child groups, and tests through the various decorators and methods
     it provides.
 
-    If `cascading_failure` is `True`, and one of the setUps for this group
+    If ``cascading_failure`` is ``True``, and one of the setUps for this group
     throws an error, then the remaining setUps will be skipped and, of the
     remaining setUps and tests within this group (including those of
     descendant groups), the setUps will be skipped, and the tests will
@@ -198,9 +198,9 @@ class GroupContextManager(object):
         :param params: The collection of sets of parameters
         :type params: collection
 
-        If `cascading_failure` is `True`, and one of the setUps for this group
-        throws an error, then the remaining setUps will be skipped and, of the
-        remaining setUps and tests within this group (including those of
+        If ``cascading_failure`` is ``True``, and one of the setUps for this
+        group throws an error, then the remaining setUps will be skipped and,
+        of the remaining setUps and tests within this group (including those of
         descendant groups), the setUps will be skipped, and the tests will
         automatically fail.
 
@@ -1519,10 +1519,10 @@ class NullGroup(object):
 class Case(object):
     """Information about the test case.
 
-    This includes the `Group` that this test case belongs to, the test case's
-    description, the `Group` level that this test case will need to teardown to
-    if needed (`None` by default), and the actual function that performs the
-    test.
+    This includes the :class:`Group` that this test case belongs to, the test
+    case's description, the :class:`Group` level that this test case will need
+    to teardown to if needed (`None` by default), and the actual function that
+    performs the test.
     """
 
     _helper = helper
