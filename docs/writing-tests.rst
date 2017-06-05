@@ -556,6 +556,86 @@ That would output the following:
 Advanced Usage
 **************
 
+Metaprogramming
+===============
+
+Contextional works by having you write normal code that, when evaluted during
+the test discovery process, creates objects containing information about the
+tests you want to create and how you want them to run. Those objects are later
+used to create the tests that actually get run by the testing framework (when
+you call :meth:`.create_tests`).
+
+Because of this, you can use any tools at your disposal to help create those
+objects just like you would create any other object in a Python script.
+
+For example, let's say you have a series of characters that you want to check
+exist in a larger string. You could quickly write all of those tests using a
+for loop::
+
+    from string import ascii_lowercase
+
+
+    main_string = "the quick brown fox jumped over the lazy dog"
+
+
+    with GCM(main_string) as MG:
+
+        for letter in ascii_lowercase:
+
+            @MG.add_test("contains '{}'".format(letter))
+            def test(case):
+                case.assertIn(letter, main_string)
+
+which would spit out something like this:
+
+.. code-block:: none
+
+    the quick brown fox jumped over the lazy dog
+      contains 'a' ... ok
+      contains 'b' ... ok
+      contains 'c' ... ok
+      ...
+      contains 'x' ... ok
+      contains 'y' ... ok
+      contains 'z' ... ok
+
+You can even do it for whole child groups::
+
+    from string import ascii_lowercase
+
+
+    main_string = "the quick brown fox jumped over the lazy dog"
+
+
+    with GCM(main_string) as MG:
+
+        for letter in ascii_lowercase:
+
+            with MG.add_group("Letter: '{}'".format(letter.upper())):
+
+                @MG.add_test("is present")
+                def test(case):
+                    case.assertIn(letter, main_string)
+
+which would be something like this:
+
+.. code-block:: none
+
+    the quick brown fox jumped over the lazy dog
+      Letter: 'A'
+        is present ... ok
+      Letter: 'B'
+        is present ... ok
+      Letter: 'C'
+        is present ... ok
+      ...
+      Letter: 'X'
+        is present ... ok
+      Letter: 'Y'
+        is present ... ok
+      Letter: 'Z'
+        is present ... ok
+
 Parameterization
 ================
 
