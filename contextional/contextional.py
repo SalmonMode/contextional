@@ -81,18 +81,18 @@ class GroupContextManager(object):
     :param description: The description for the group of the current context.
     :type descrition: str.
     :param cascading_failure: Cascade the failure to all tests within the root
-        group (including those in descendant groups).
-    :type descrition: bool.
+        group.
+    :type cascading_failure: bool.
 
     A group manager is used to handle constructing groups, their fixtures,
     child groups, and tests through the various decorators and methods
     it provides.
 
-    If `cascading_failure` is `True`, and one of the setUps for the group
-    throws an error or one of the tests for the group fails or throws an
-    error, then, of the remaining setUps and tests within this group
-    (including those of descendant groups), the setUps will be skipped, and
-    the tests will automatically fail.
+    If `cascading_failure` is `True`, and one of the setUps for this group
+    throws an error, then the remaining setUps will be skipped and, of the
+    remaining setUps and tests within this group (including those of
+    descendant groups), the setUps will be skipped, and the tests will
+    automatically fail.
 
     In the event of a cascading failure, all tearDowns of this group (but
     not the descendant groups) will still be run, so, if there are any,
@@ -100,10 +100,9 @@ class GroupContextManager(object):
     setUps for this group didn't run all the way through without any
     problems.
 
-    A cascading failure can only be triggered by a setUp or test that
-    exists at the top level of this group. If a setUp or test of a
-    descendant group has an issue, it will not cause a cascading failure of
-    this group.
+    A cascading failure can only be triggered by a setUp that exists at the
+    top level of this group. If a setUp of a descendant group has an issue, it
+    will not cause a cascading failure of this group.
 
     Example::
 
@@ -118,7 +117,7 @@ class GroupContextManager(object):
 
     _helper = helper
 
-    def __init__(self, description, cascading_failure=False):
+    def __init__(self, description, cascading_failure=True):
         self._group = Group(description, cascading_failure=cascading_failure)
 
     def __enter__(self):
@@ -188,22 +187,22 @@ class GroupContextManager(object):
             return decorator
 
     @contextmanager
-    def add_group(self, description, cascading_failure=False, params=()):
+    def add_group(self, description, cascading_failure=True, params=()):
         """Use a new child group of the parent group for this context.
 
         :param description: The description of the group for the context
         :type description: str
         :param cascading_failure: Cascade the failure to all tests within this
-            group (including those in descendant groups).
+            group.
         :type descrition: bool.
         :param params: The collection of sets of parameters
         :type params: collection
 
-        If `cascading_failure` is `True`, and one of the setUps for the group
-        throws an error or one of the tests for the group fails or throws an
-        error, then, of the remaining setUps and tests within this group
-        (including those of descendant groups), the setUps will be skipped, and
-        the tests will automatically fail.
+        If `cascading_failure` is `True`, and one of the setUps for this group
+        throws an error, then the remaining setUps will be skipped and, of the
+        remaining setUps and tests within this group (including those of
+        descendant groups), the setUps will be skipped, and the tests will
+        automatically fail.
 
         In the event of a cascading failure, all tearDowns of this group (but
         not the descendant groups) will still be run, so, if there are any,
@@ -211,10 +210,9 @@ class GroupContextManager(object):
         setUps for this group didn't run all the way through without any
         problems.
 
-        A cascading failure can only be triggered by a setUp or test that
-        exists at the top level of this group. If a setUp or test of a
-        descendant group has an issue, it will not cause a cascading failure of
-        this group.
+        A cascading failure can only be triggered by a setUp that exists at the
+        top level of this group. If a setUp of a descendant group has an issue,
+        it will not cause a cascading failure of this group.
 
         If provided with parameters, a duplicate group will be made for each
         set of parameters (if any are provided) where each set of parameters is
@@ -1336,10 +1334,6 @@ class GroupTestCase(object):
                 "Test completed unsuccessfully.",
                 exc_info=True,
             )
-            if self._group._cascading_failure:
-                LOGGER.debug("Preparing for cascading failure.")
-                self.__class__._auto_fail = True
-                self._group._cascading_failure_in_progress = True
             raise
         LOGGER.debug("Test completed successfully.")
 
@@ -1352,7 +1346,7 @@ class Group(object):
 
     _helper = helper
 
-    def __init__(self, description, cascading_failure=False, args=(),
+    def __init__(self, description, cascading_failure=True, args=(),
                  parent=None):
         self._description = description
         self._parent = parent
