@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import logging
+import sys
 import unittest
 import inspect
 from random import getrandbits
@@ -11,6 +12,10 @@ from contextlib import contextmanager
 from copy import deepcopy
 from types import FunctionType
 from collections import Mapping
+
+
+class CascadingFailureError(AssertionError):
+    """Raise in tests during a cascading failure."""
 
 
 LOGGER = logging.getLogger(__name__)
@@ -73,6 +78,13 @@ class Helper(unittest.TestCase):
 
 
 helper = Helper()
+
+
+def get_next_test_from_helper():
+    return helper._cases[0]
+
+def get_level_stack():
+    return helper._level_stack
 
 
 class GroupContextManager(object):
@@ -772,10 +784,32 @@ class GroupContextManager(object):
 
             MG.create_tests(globals())
         """
+        plugin = "contextional.pytest_contextional"
+        if "pytest_plugins" in mod:
+            str_type = str if sys.version_info >= (3, 0) else basestring
+            if isinstance(mod["pytest_plugins"], list):
+                mod["pytest_plugins"].append(plugin)
+            elif isinstance(mod["pytest_plugins"], tuple):
+                mod["pytest_plugins"] = list(mod["pytest_plugins"]).append(plugin)
+            elif isinstance(mod["pytest_plugins"], str_type):
+                mod["pytest_plugins"] = [
+                    mod["pytest_plugins"],
+                    "contextional.pytest_contextional",
+                ]
+        else:
+            mod["pytest_plugins"] = [
+                "contextional.pytest_contextional",
+            ]
         start_test_count = self._helper._get_test_count()
         self._group._build_test_cases(mod)
         if self._helper._get_test_count() > start_test_count:
             self._helper._set_teardown_level_for_last_case(NullGroup)
+
+
+def report_sections_dec(func):
+    func._report_sections = []
+    func.nodeid = "cheese"
+    return func
 
 
 class GroupTestCase(object):
@@ -790,6 +824,9 @@ class GroupTestCase(object):
     _root_group_hash = None
     _description = ""
     _full_description = ""
+    _currentResult = None
+    _err_info = None
+    _err = None
 
     def __str__(self):
         """String representation of the test case.
@@ -1065,7 +1102,7 @@ class GroupTestCase(object):
                     E
                         some test
         """
-
+        __tracebackhide__ = True
         cls._case = cls._helper._get_next_test()
         cls._group = cls._case._group
         setup_ancestry = list(reversed(cls._group._ancestry))
@@ -1134,11 +1171,13 @@ class GroupTestCase(object):
                         LOGGER.debug("setUp #{} complete.".format(i))
                     LOGGER.debug("Done setting up group.")
                     cls._helper._level_stack.append(group)
-        except Exception:
+        except Exception as e:
             LOGGER.error(
                 "Couldn't complete setups for the group due to exception.",
                 exc_info=True,
             )
+            cls._err = e
+            cls._err_info = sys.exc_info()
             if cls._group._cascading_failure:
                 LOGGER.debug("Preparing for cascading failure.")
                 cls._auto_fail = True
@@ -1147,7 +1186,7 @@ class GroupTestCase(object):
                 for group in setup_ancestry:
                     if group not in cls._helper._level_stack:
                         cls._helper._level_stack.append(group)
-            raise
+            # raise
         LOGGER.debug("Setups complete.")
 
     def setUp(self):
@@ -1158,6 +1197,13 @@ class GroupTestCase(object):
         fails, errors, or is skipped, the test's description in the results
         output provides the complete context for this test case.
         """
+        # for thing in dir(self):
+        #     print(thing)
+        if self._err:
+            self._currentResult.addError(self, self._err_info)
+            self._currentResult.addError(self, self._err_info)
+            self.__class__._auto_fail = True
+            self.__class__._group._cascading_failure_in_progress = True
         self._case._test_started = True
         if self._auto_fail is True:
             LOGGER.debug(
@@ -1309,7 +1355,13 @@ class GroupTestCase(object):
                 cls._helper._level_stack.remove(group)
             LOGGER.debug("Teardowns complete.")
 
+    def run(self, result=None):
+        __tracebackhide__ = True
+        self.__class__._currentResult = getattr(result, "result", result)
+        unittest.TestCase.run(self, result)
+
     def runTest(self):
+        __tracebackhide__ = True
         if self._auto_fail is True:
             LOGGER.debug(
                 "CASCADING FAILURE - Not running test:\n{}".format(
@@ -1318,7 +1370,7 @@ class GroupTestCase(object):
                     self._case._description,
                 ),
             )
-            self.fail("CASCADING FAILURE")
+            raise CascadingFailureError()
         LOGGER.debug(
             "Running test:\n{}\n{}{}".format(
                 self._group._get_full_ancestry_description(indented=True),
@@ -1330,10 +1382,10 @@ class GroupTestCase(object):
         try:
             self._case(self)
         except Exception:
-            LOGGER.error(
-                "Test completed unsuccessfully.",
-                exc_info=True,
-            )
+            # LOGGER.error(
+            #     "Test completed unsuccessfully.",
+            #     exc_info=True,
+            # )
             raise
         LOGGER.debug("Test completed successfully.")
 
@@ -1352,6 +1404,7 @@ class Group(object):
         self._parent = parent
         self._cascading_failure = cascading_failure
         self._cascading_failure_in_progress = False
+        self._cascading_failure_root = False
         self._args = args
         self._cases = []
         self._setups = []
@@ -1503,6 +1556,81 @@ class Group(object):
         self._children.append(child)
         return child
 
+    def _setup_group(self):
+        """Setup the :class:`Group`.
+
+        Check if any ancestor :class:`Group`s caused a cascading failure. If
+        so, do nothing. Otherwise, run the setups for the group.
+
+        """
+        __tracebackhide__ = True
+        if self in self._helper._level_stack:
+            # setup for this group has already been attempted
+            return
+        self._helper._level_stack.append(self)
+        self._cascading_failure_in_progress = any(
+            group._cascading_failure_in_progress for group in self._ancestry,
+        )
+        if self._cascading_failure_in_progress:
+            LOGGER.debug(
+                "CASCADING FAILURE - Not setting up group:\n{}".format(
+                    self._get_full_ancestry_description(indented=True),
+                ),
+            )
+        else:
+            LOGGER.debug(
+                "Running setUps for group:\n{}".format(
+                    self._get_full_ancestry_description(
+                        indented=True,
+                    ),
+                ),
+            )
+            try:
+                for i, setup in enumerate(self._setups):
+                    LOGGER.debug("Running setUp #{}".format(i))
+                    if isinstance(self._args, Mapping):
+                        setup(**self._args)
+                    else:
+                        setup(*self._args)
+                    LOGGER.debug("setUp #{} complete.".format(i))
+            except:
+                LOGGER.debug("Group setup failed.", exc_info=True)
+                if self._cascading_failure:
+                    LOGGER.debug("Triggering cascading failure.")
+                    self._cascading_failure_in_progress = True
+                    self._cascading_failure_root = True
+                raise
+            LOGGER.debug("Done setting up group.")
+
+    def _teardown_group(self):
+        """Teardown the :class:`Group`.
+
+        Check if there's currently a cascading failure. If so, find what level it began at.any ancestor :class:`Group`s caused a cascading failure. If
+        so, do nothing. Otherwise, run the setups for the group.
+
+        """
+        __tracebackhide__ = True
+        if self not in self._helper._level_stack:
+            # teardownsfor this group has already been attempted
+            return
+        if self._teardowns:
+            LOGGER.debug(
+                "Running tearDowns for group:\n{}".format(
+                    self._get_full_ancestry_description(True),
+                ),
+            )
+            try:
+                for i, teardown in enumerate(self._teardowns):
+                    LOGGER.debug("Running tearDown #{}".format(i))
+                    teardown()
+                LOGGER.debug("tearDown #{} complete.".format(i))
+            except:
+                LOGGER.debug("Group teardown failed.", exc_info=True)
+                self._helper._level_stack.remove(self)
+                raise
+        self._helper._level_stack.remove(self)
+        LOGGER.debug("Done tearing down group.")
+
 
 class NullGroup(object):
     """Represents the ultimate teardown level.
@@ -1526,6 +1654,7 @@ class Case(object):
     """
 
     _helper = helper
+    _exc_info = None
 
     def __init__(self, group, func, description):
         self._group = group
@@ -1536,6 +1665,7 @@ class Case(object):
 
     def __call__(self, testcase, *args):
         """Performs the actual test."""
+        __tracebackhide__ = True
         self._helper = testcase
         funcargs, _, _, _ = inspect.getargspec(self._func)
         if funcargs:
@@ -1546,3 +1676,37 @@ class Case(object):
     def __getattr__(self, attr):
         """Defer attribute lookups to helper."""
         return getattr(self._helper, attr)
+
+    def _teardown_to_teardown_level(self):
+        if self._teardown_level is NullGroup:
+            stop_index = None
+        else:
+            try:
+                stop_index = self._helper._level_stack.index(
+                    self._teardown_level,
+                )
+            except IndexError:
+                raise IndexError(
+                    "Cannot teardown to desired level from current stack.",
+                )
+        teardown_groups = self._helper._level_stack[:stop_index:-1]
+        for group in teardown_groups:
+            if group._teardown_group():
+                LOGGER.debug(
+                    "Running tearDowns for group:\n{}".format(
+                        group._get_full_ancestry_description(True),
+                    ),
+                )
+                # ensure the group description is shown if the teardowns
+                # have an error.
+                for i, teardown in enumerate(group._teardowns):
+                    LOGGER.debug("Running tearDown #{}".format(i))
+                    cls._set_class_name_for_group(
+                        group,
+                        "tearDown #{}".format(i),
+                    )
+                    teardown()
+                LOGGER.debug("tearDown #{} complete.".format(i))
+            LOGGER.debug("Done tearing down group.")
+            cls._helper._level_stack.remove(group)
+        LOGGER.debug("Teardowns complete.")
