@@ -919,10 +919,11 @@ class GroupTestCase(object):
         fixtures, as it points to the specific point in the ancestry that had
         the problem.
         """
-        cls.__name__ = "Contextional Case {}:\n{}".format(
+        cls._err_description = "Contextional Case {}:\n{}".format(
             fixture_label,
             group._get_full_ancestry_description(indented=True),
         )
+        cls.__name__ = cls._err_description
 
     @classmethod
     def _set_test_descriptions(cls, setup_ancestry):
@@ -1141,7 +1142,7 @@ class GroupTestCase(object):
                     ),
                 )
             except Exception:
-                LOGGER.error(
+                LOGGER.debug(
                     "Couldn't teardown to common point due to exception.",
                     exc_info=True,
                 )
@@ -1172,7 +1173,7 @@ class GroupTestCase(object):
                     LOGGER.debug("Done setting up group.")
                     cls._helper._level_stack.append(group)
         except Exception as e:
-            LOGGER.error(
+            LOGGER.debug(
                 "Couldn't complete setups for the group due to exception.",
                 exc_info=True,
             )
@@ -1186,7 +1187,7 @@ class GroupTestCase(object):
                 for group in setup_ancestry:
                     if group not in cls._helper._level_stack:
                         cls._helper._level_stack.append(group)
-            # raise
+            raise
         LOGGER.debug("Setups complete.")
 
     def setUp(self):
@@ -1197,10 +1198,7 @@ class GroupTestCase(object):
         fails, errors, or is skipped, the test's description in the results
         output provides the complete context for this test case.
         """
-        # for thing in dir(self):
-        #     print(thing)
         if self._err:
-            self._currentResult.addError(self, self._err_info)
             self._currentResult.addError(self, self._err_info)
             self.__class__._auto_fail = True
             self.__class__._group._cascading_failure_in_progress = True
@@ -1231,7 +1229,7 @@ class GroupTestCase(object):
                     setup()
                 LOGGER.debug("test setUp #{} complete.".format(i))
         except Exception:
-            LOGGER.error(
+            LOGGER.debug(
                 "Couldn't complete setups for the test due to exception.",
                 exc_info=True,
             )
@@ -1270,7 +1268,7 @@ class GroupTestCase(object):
                     teardown()
                 LOGGER.debug("test tearDown #{} complete.".format(i))
         except Exception:
-            LOGGER.error(
+            LOGGER.debug(
                 "Couldn't complete teardowns for the test due to exception.",
                 exc_info=True,
             )
@@ -1382,7 +1380,7 @@ class GroupTestCase(object):
         try:
             self._case(self)
         except Exception:
-            # LOGGER.error(
+            # LOGGER.debug(
             #     "Test completed unsuccessfully.",
             #     exc_info=True,
             # )
