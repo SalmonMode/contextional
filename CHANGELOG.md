@@ -4,6 +4,10 @@
 ### Added
 - This CHANGELOG.
 
+### Fixed
+- Logging level going to error instead of debug.
+- Group setup errors not being raised.
+
 ## [1.0.0] - 2017-06-14
 ### Added
 - Robust support for ``pytest``.
