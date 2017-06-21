@@ -3,10 +3,24 @@
 ## [Unreleased]
 ### Added
 - This CHANGELOG.
+- Tests now write out Group descriptions as setups and teardowns for those
+Groups are ran in both pytest and nose (or any other testing framework that
+runs tests from ``unittest.TestCase`` classes in the standard fashion).
+- Errors in Group setups and teardowns will be shown next to the Group's
+description as they are written out during test runtime. If an error occurs
+during a Group teardown, the Group's description will be written out again so
+the error status can be shown next to it.
+
+### Changed
+- Cleaned up code by putting certain, common operations into functions and/or
+properties.
 
 ### Fixed
 - Logging level going to error instead of debug.
 - Group setup errors not being raised.
+- Test status now shows up properly in pytest when running the tests in a
+non-verbose mode. This includes errors that occur during a Group setup or
+teardown.
 
 ## [1.0.0] - 2017-06-14
 ### Added

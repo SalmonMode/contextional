@@ -1,12 +1,10 @@
 from __future__ import absolute_import
 
-import sys
 from time import time
 
 from contextional.contextional import (
     GroupTestCase,
     get_next_test_from_helper,
-    get_level_stack,
     NullGroup,
     Group,
     Case,
@@ -17,14 +15,14 @@ from contextional.contextional import (
 import pytest
 from _pytest.terminal import TerminalReporter
 from _pytest import runner
-from _pytest.runner import TestReport, skip, CallInfo
-from _pytest._code.code import ExceptionInfo, ReprEntry, FormattedExcinfo
+from _pytest.runner import TestReport, skip
+from _pytest._code.code import ExceptionInfo, ReprEntry
 
 
 @pytest.mark.trylast
 def pytest_configure(config):
     if hasattr(config, 'slaveinput'):
-        return  # xdist slave, we are already active on the master
+        return
     # Get the standard terminal reporter plugin...
     standard_reporter = config.pluginmanager.getplugin('terminalreporter')
     contextional_reporter = ContextionalTerminalReporter(standard_reporter)
@@ -36,27 +34,25 @@ def pytest_configure(config):
 
 def pytest_runtest_protocol(item, nextitem):
     if item.obj == GroupTestCase.runTest:
-        case = get_next_test_from_helper()
         # the current test is a GroupTestCase test
-        item.ihook.pytest_runtest_logstart(
-            nodeid=case._description + " ",
-            location=case,
-        )
-        item._nodeid = "  " * (case._group._level + 1) + case._description + " "
+        case = get_next_test_from_helper()
+        item._nodeid = item.nodeid.split("::")[0] + "::"
+        item._nodeid += case._inline_description
         item._location = case
-    else:
-        item.ihook.pytest_runtest_logstart(
-            nodeid=item.nodeid,
-            location=item.location,
-        )
+    item.ihook.pytest_runtest_logstart(
+        nodeid=item.nodeid,
+        location=item.location,
+    )
     runner.runtestprotocol(item, nextitem=nextitem)
+    if item.obj == GroupTestCase.runTest:
+        handle_teardowns(item)
     return True
 
 
-def pytest_runtest_teardown(item, nextitem):
-    __tracebackhide__ = True
-    if isinstance(item._location, Case):
-        handle_teardowns(item)
+def pytest_collection_modifyitems(session, config, items):
+    for item in items:
+        if issubclass(item.cls, GroupTestCase):
+            item.cls._is_pytest = True
 
 
 def handle_teardowns(item):
@@ -97,12 +93,6 @@ def handle_teardowns(item):
             )
             for group in teardown_groups:
                 if group in case._helper._level_stack:
-                    LOGGER.debug(
-                        "Tearing down group:\n{}"
-                        .format(
-                            group._get_full_ancestry_description(True),
-                        ),
-                    )
                     start_time = time()
                     try:
                         group._teardown_group()
@@ -110,7 +100,8 @@ def handle_teardowns(item):
                         # handle error during group setup
                         excinfo = ExceptionInfo()
                         stop_time = time()
-                        nodeid = "  " * group._level + group._description
+                        nodeid = item.nodeid.split("::")[0] + "::"
+                        nodeid += group._inline_description + " "
                         location = group
                         keywords = {}
                         outcome = "failed"
@@ -122,15 +113,15 @@ def handle_teardowns(item):
                             "Context:",
                             "",
                         ]
-                        for group in list(reversed(group._ancestry)):
-                            context_lines.append(
-                                "  {}{}".format(
-                                    "  " * group._level,
-                                    group._description,
-                                ),
-                            )
+                        context_lines += str(group).split("\n")
                         context_lines[-1] = ">" + context_lines[-1][1:]
-                        entry = ReprEntry(context_lines, None, None, None, "long")
+                        entry = ReprEntry(
+                            context_lines,
+                            None,
+                            None,
+                            None,
+                            "long",
+                        )
                         if hasattr(longrepr, "chain"):
                             reprtraceback = longrepr.chain[0][0]
                         else:
@@ -149,7 +140,6 @@ def handle_teardowns(item):
                         item.ihook.pytest_runtest_logreport(report=report)
 
 
-
 class ContextionalTerminalReporter(TerminalReporter):
 
     def __init__(self, reporter):
@@ -158,12 +148,11 @@ class ContextionalTerminalReporter(TerminalReporter):
         self._sessionstarttime = reporter._sessionstarttime
 
     def pytest_runtest_logstart(self, nodeid, location):
-        # ensure that the path is printed before the
-        # 1st test of a module starts running
+        if isinstance(location, Case):
+            self.setup_contextional_groups(nodeid, location)
         if self.showlongtestinfo:
             if isinstance(location, Case):
-                self.setup_contextional_groups(nodeid, location)
-                line = "  " * (location._group._level + 1) + nodeid + " "
+                line = location._inline_description + " "
                 self.write_ensure_prefix(line, "")
             else:
                 line = self._locationline(nodeid, *location)
@@ -174,12 +163,11 @@ class ContextionalTerminalReporter(TerminalReporter):
 
     def setup_contextional_groups(self, nodeid, location):
         __tracebackhide__ = True
-        setup_ancestry = list(reversed(location._group._ancestry))
-        for group in setup_ancestry:
+        for group in location._group._setup_ancestry:
             if group not in group._helper._level_stack:
-                line = "  " * group._level
-                line += group._description + " "
-                self.write_ensure_prefix(line, "")
+                if self.showlongtestinfo:
+                    line = group._inline_description + " "
+                    self.write_ensure_prefix(line, "")
                 start_time = time()
                 try:
                     group._setup_group()
@@ -187,7 +175,8 @@ class ContextionalTerminalReporter(TerminalReporter):
                     # handle error during group setup
                     excinfo = ExceptionInfo()
                     stop_time = time()
-                    nodeid = "  " * group._level + group._description
+                    nodeid = nodeid.split("::")[0] + "::"
+                    nodeid += group._inline_description + " "
                     location = group
                     keywords = {}
                     outcome = "failed"
@@ -199,13 +188,7 @@ class ContextionalTerminalReporter(TerminalReporter):
                         "Context:",
                         "",
                     ]
-                    for group in list(reversed(group._ancestry)):
-                        context_lines.append(
-                            "  {}{}".format(
-                                "  " * group._level,
-                                group._description,
-                            ),
-                        )
+                    context_lines += str(group).split("\n")
                     context_lines[-1] = ">" + context_lines[-1][1:]
                     entry = ReprEntry(context_lines, None, None, None, "long")
                     if hasattr(longrepr, "chain"):
@@ -251,14 +234,12 @@ class ContextionalTerminalReporter(TerminalReporter):
                 elif rep.skipped:
                     markup = {'yellow':True}
             if isinstance(rep.location, (Group, Case)):
-                line = rep.nodeid + " "
+                line = rep.location._inline_description + " "
                 self.write_ensure_prefix(line, word, **markup)
             else:
                 line = self._locationline(rep.nodeid, *rep.location)
                 if not hasattr(rep, 'node'):
-
                     self.write_ensure_prefix(line, word, **markup)
-                    #self._tw.write(word, **markup)
                 else:
                     self.ensure_newline()
                     if hasattr(rep, 'node'):
@@ -286,7 +267,8 @@ class ContextionalTerminalReporter(TerminalReporter):
                     self.write_sep("_", msg, **markup)
                     self._outrep_summary(rep)
                     for report in self.getreports(''):
-                        if report.nodeid == rep.nodeid and report.when == 'teardown':
+                        if (report.nodeid == rep.nodeid and
+                                report.when == 'teardown'):
                             self.print_teardown_sections(report)
 
     def summary_errors(self):
@@ -307,12 +289,14 @@ class ContextionalTerminalReporter(TerminalReporter):
                     msg = "ERROR collecting " + msg
                 elif rep.when == "setup":
                     if isinstance(rep.location, Group):
-                        msg = "ERROR at setup of " + rep.location._description
+                        msg = "ERROR at setup of "
+                        msg += rep.location._description
                     else:
                         msg = "ERROR at setup of " + msg
                 elif rep.when == "teardown":
                     if isinstance(rep.location, Group):
-                        msg = "ERROR at teardown of " + rep.location._description
+                        msg = "ERROR at teardown of "
+                        msg += rep.location._description
                     else:
                         msg = "ERROR at teardown of " + msg
                 self.write_sep("_", msg)
@@ -340,18 +324,13 @@ def pytest_runtest_makereport(item, call):
             outcome = "failed"
             if call.when == "call":
                 if isinstance(item.location, Case):
+                    case = item.location
                     longrepr = item.repr_failure(excinfo)
-                    context_lines = "Context:\n\n"
-                    ancestry = list(reversed(item.location._group._ancestry))
-                    for group in ancestry:
-                        context_lines += "  {indent}{description}\n".format(
-                            indent=("  " * group._level),
-                            description=group._description,
-                        )
-                    context_lines += "> {description}\n".format(
-                        description=item.nodeid,
-                    )
-                    context_lines = context_lines.split("\n")
+                    context_lines = [
+                        "Context:",
+                    ]
+                    context_lines += case._full_description.split("\n")
+                    context_lines[-1] = ">" + context_lines[-1][1:]
                     if excinfo.errisinstance(CascadingFailureError):
                         context_lines.append("E       CASCADING FAILURE")
 
@@ -366,7 +345,7 @@ def pytest_runtest_makereport(item, call):
                         reprtraceback.reprentries.insert(0, entry)
                 else:
                     longrepr = item.repr_failure(excinfo)
-            else: # exception in setup or teardown
+            else:
                 longrepr = item._repr_failure_py(excinfo,
                                             style=item.config.option.tbstyle)
     for rwhen, key, content in item._report_sections:
