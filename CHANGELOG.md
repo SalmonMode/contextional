@@ -7,6 +7,7 @@
 ### Changed
 - Only ``Case`` objects should consider whether or not arguments need to be
 passed to them.
+- Removed ``get_level_stack``, as it was unnecessary.
 
 ### Fixed
 - Fixed line breaks in the changelog.
