@@ -47,7 +47,7 @@ project = "contextional"
 copyright = "2017, Chris NeJame"
 author = "Chris NeJame"
 
-release = "1.1.0"
+release = "1.2.0"
 
 language = None
 
