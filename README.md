@@ -1,4 +1,4 @@
-# `contextional`
+# `contextional` [![Build Status](https://travis-ci.org/SalmonMode/contextional.svg?branch=master)](https://travis-ci.org/SalmonMode/contextional)
 A context-based functional testing tool for Python
 
 ## Installation
