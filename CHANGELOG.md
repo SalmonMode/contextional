@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Markdown links to version tags for release headings.
+
 ### Fixed
 - Fixed line breaks in the changelog.
 - Deprecation warnings about ``inspect.getargspec`` when using Python 3.
@@ -168,7 +171,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/SalmonMode/contextional/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/SalmonMode/contextional/compare/0.9.0...1.0.0
 [0.9.0]: https://github.com/SalmonMode/contextional/compare/0.8.9...0.9.0
 [0.8.9]: https://github.com/SalmonMode/contextional/compare/0.8.8...0.8.9
