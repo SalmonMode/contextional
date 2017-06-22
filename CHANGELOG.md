@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 - Markdown links to version tags for release headings.
+- Simple tests.
 
 ### Changed
 - Only ``Case`` objects should consider whether or not arguments need to be
