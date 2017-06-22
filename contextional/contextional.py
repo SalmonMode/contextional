@@ -84,10 +84,6 @@ def get_next_test_from_helper():
     return helper._cases[0]
 
 
-def get_level_stack():
-    return helper._level_stack
-
-
 class ContextionalTestResultProxy(object):
 
     def __init__(self, result):
