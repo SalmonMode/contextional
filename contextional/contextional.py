@@ -1156,11 +1156,7 @@ class GroupTestCase(object):
         try:
             for i, setup in enumerate(self._group._test_setups):
                 LOGGER.debug("Running test setUp #{}".format(i))
-                args, _, _, _ = inspect.getargspec(setup)
-                if args:
-                    setup(self)
-                else:
-                    setup()
+                setup()
                 LOGGER.debug("test setUp #{} complete.".format(i))
         except Exception:
             LOGGER.debug(
@@ -1195,11 +1191,7 @@ class GroupTestCase(object):
         try:
             for i, teardown in enumerate(self._group._test_teardowns):
                 LOGGER.debug("Running test tearDown #{}".format(i))
-                args, _, _, _ = inspect.getargspec(teardown)
-                if args:
-                    teardown(self)
-                else:
-                    teardown()
+                teardown()
                 LOGGER.debug("test tearDown #{} complete.".format(i))
         except Exception:
             LOGGER.debug(
@@ -1621,7 +1613,10 @@ class Case(object):
         """Performs the actual test."""
         __tracebackhide__ = True
         self._helper = testcase
-        funcargs, _, _, _ = inspect.getargspec(self._func)
+        if sys.version_info >= (3, 0):
+            funcargs = inspect.getfullargspec(self._func).args
+        else:
+            funcargs = inspect.getargspec(self._func)[0]
         if funcargs:
             self._func(testcase, *args)
         else:
