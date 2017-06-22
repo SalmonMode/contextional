@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- Fixed line breaks in the changelog.
+- Deprecation warnings about ``inspect.getargspec`` when using Python 3.
 
 ## [1.1.0] - 2017-06-21
 ### Added
