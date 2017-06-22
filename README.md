@@ -1,4 +1,6 @@
-# `contextional` [![Build Status](https://travis-ci.org/SalmonMode/contextional.svg?branch=master)](https://travis-ci.org/SalmonMode/contextional)
+[![Build Status](https://travis-ci.org/SalmonMode/contextional.svg?branch=master)](https://travis-ci.org/SalmonMode/contextional) [![PyPI version](https://badge.fury.io/py/contextional.svg)](https://badge.fury.io/py/contextional) [![Docs](https://readthedocs.org/projects/pip/badge/)](http://contextional.readthedocs.io/)
+
+# `contextional`
 A context-based functional testing tool for Python
 
 ## Installation
