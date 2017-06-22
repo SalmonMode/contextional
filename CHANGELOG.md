@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.2.0] - 2017-06-22
 ### Added
 - Markdown links to version tags for release headings.
 - Simple tests.
@@ -180,7 +182,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.2.0...HEAD
+[1.1.0]: https://github.com/SalmonMode/contextional/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/SalmonMode/contextional/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/SalmonMode/contextional/compare/0.9.0...1.0.0
 [0.9.0]: https://github.com/SalmonMode/contextional/compare/0.8.9...0.9.0
