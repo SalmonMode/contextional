@@ -4,6 +4,10 @@
 ### Added
 - Markdown links to version tags for release headings.
 
+### Changed
+- Only ``Case`` objects should consider whether or not arguments need to be
+passed to them.
+
 ### Fixed
 - Fixed line breaks in the changelog.
 - Deprecation warnings about ``inspect.getargspec`` when using Python 3.
