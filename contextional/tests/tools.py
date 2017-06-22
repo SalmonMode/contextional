@@ -1,6 +1,9 @@
 from __future__ import absolute_import
 
-import unittest
+from unittest import (
+    _TextTestResult,
+    TextTestRunner,
+)
 
 
 class FakeStream(object):
@@ -15,14 +18,14 @@ class FakeStream(object):
         pass
 
 
-class TextTestResultHolder(unittest.runner.TextTestResult):
+class TextTestResultHolder(_TextTestResult):
 
     def printErrors(self):
         self.test_run_output = self.stream.output.strip("\n").split("\n")
         super(TextTestResultHolder, self).printErrors()
 
 
-class SilentTestRunner(unittest.TextTestRunner):
+class SilentTestRunner(TextTestRunner):
 
     def __init__(self, *args, **kwargs):
         kwargs["stream"] = FakeStream()
