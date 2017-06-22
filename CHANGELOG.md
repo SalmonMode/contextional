@@ -4,11 +4,14 @@
 ### Added
 - Markdown links to version tags for release headings.
 - Simple tests.
+- Integration with Travis-CI.
+- Shields to README.
 
 ### Changed
 - Only ``Case`` objects should consider whether or not arguments need to be
 passed to them.
 - Removed ``get_level_stack``, as it was unnecessary.
+- Dropped support for Python 2.6.
 
 ### Fixed
 - Fixed line breaks in the changelog.
