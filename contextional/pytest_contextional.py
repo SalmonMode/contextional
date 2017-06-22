@@ -21,15 +21,15 @@ from _pytest._code.code import ExceptionInfo, ReprEntry
 
 @pytest.mark.trylast
 def pytest_configure(config):
-    if hasattr(config, 'slaveinput'):
+    if hasattr(config, "slaveinput"):
         return
     # Get the standard terminal reporter plugin...
-    standard_reporter = config.pluginmanager.getplugin('terminalreporter')
+    standard_reporter = config.pluginmanager.getplugin("terminalreporter")
     contextional_reporter = ContextionalTerminalReporter(standard_reporter)
 
     # ...and replace it with our own instafailing reporter.
     config.pluginmanager.unregister(standard_reporter)
-    config.pluginmanager.register(contextional_reporter, 'terminalreporter')
+    config.pluginmanager.register(contextional_reporter, "terminalreporter")
 
 
 def pytest_runtest_protocol(item, nextitem):
@@ -219,7 +219,7 @@ class ContextionalTerminalReporter(TerminalReporter):
             # probably passed setup/teardown
             return
         if self.verbosity <= 0:
-            if not hasattr(rep, 'node') and self.showfspath:
+            if not hasattr(rep, "node") and self.showfspath:
                 self.write_fspath_result(rep.nodeid, letter)
             else:
                 self._tw.write(letter)
@@ -228,21 +228,21 @@ class ContextionalTerminalReporter(TerminalReporter):
                 word, markup = word
             else:
                 if rep.passed:
-                    markup = {'green':True}
+                    markup = {"green": True}
                 elif rep.failed:
-                    markup = {'red':True}
+                    markup = {"red": True}
                 elif rep.skipped:
-                    markup = {'yellow':True}
+                    markup = {"yellow": True}
             if isinstance(rep.location, (Group, Case)):
                 line = rep.location._inline_description + " "
                 self.write_ensure_prefix(line, word, **markup)
             else:
                 line = self._locationline(rep.nodeid, *rep.location)
-                if not hasattr(rep, 'node'):
+                if not hasattr(rep, "node"):
                     self.write_ensure_prefix(line, word, **markup)
                 else:
                     self.ensure_newline()
-                    if hasattr(rep, 'node'):
+                    if hasattr(rep, "node"):
                         self._tw.write("[%s] " % rep.node.gateway.id)
                     self._tw.write(word, **markup)
                     self._tw.write(" " + line)
@@ -250,7 +250,7 @@ class ContextionalTerminalReporter(TerminalReporter):
 
     def summary_failures(self):
         if self.config.option.tbstyle != "no":
-            reports = self.getreports('failed')
+            reports = self.getreports("failed")
             if not reports:
                 return
             self.write_sep("=", "FAILURES")
@@ -263,28 +263,28 @@ class ContextionalTerminalReporter(TerminalReporter):
                         msg = rep.location._group._root_group._description
                     else:
                         msg = self._getfailureheadline(rep)
-                    markup = {'red': True, 'bold': True}
+                    markup = {"red": True, "bold": True}
                     self.write_sep("_", msg, **markup)
                     self._outrep_summary(rep)
-                    for report in self.getreports(''):
+                    for report in self.getreports(""):
                         if (report.nodeid == rep.nodeid and
-                                report.when == 'teardown'):
+                                report.when == "teardown"):
                             self.print_teardown_sections(report)
 
     def summary_errors(self):
         if self.config.option.tbstyle != "no":
-            reports = self.getreports('error')
+            reports = self.getreports("error")
             if not reports:
                 return
             self.write_sep("=", "ERRORS")
-            for rep in self.stats['error']:
+            for rep in self.stats["error"]:
                 if isinstance(rep.location, Case):
                     msg = rep.location._group._root_group._description
                 elif isinstance(rep.location, Group):
                     msg = rep.location._root_group._description
                 else:
                     msg = self._getfailureheadline(rep)
-                if not hasattr(rep, 'when'):
+                if not hasattr(rep, "when"):
                     # collect
                     msg = "ERROR collecting " + msg
                 elif rep.when == "setup":
@@ -306,7 +306,7 @@ class ContextionalTerminalReporter(TerminalReporter):
 def pytest_runtest_makereport(item, call):
     when = call.when
     duration = call.stop-call.start
-    keywords = dict([(x,1) for x in item.keywords])
+    keywords = dict([(x, 1) for x in item.keywords])
     excinfo = call.excinfo
     sections = []
     if not call.excinfo:
@@ -346,10 +346,12 @@ def pytest_runtest_makereport(item, call):
                 else:
                     longrepr = item.repr_failure(excinfo)
             else:
-                longrepr = item._repr_failure_py(excinfo,
-                                            style=item.config.option.tbstyle)
+                longrepr = item._repr_failure_py(
+                    excinfo,
+                    style=item.config.option.tbstyle,
+                )
     for rwhen, key, content in item._report_sections:
-        sections.append(("Captured %s %s" %(key, rwhen), content))
+        sections.append(("Captured %s %s" % (key, rwhen), content))
     return TestReport(item.nodeid, item.location,
                       keywords, outcome, longrepr, when,
                       sections, duration)

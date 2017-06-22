@@ -83,6 +83,7 @@ helper = Helper()
 def get_next_test_from_helper():
     return helper._cases[0]
 
+
 def get_level_stack():
     return helper._level_stack
 
@@ -803,10 +804,10 @@ class GroupContextManager(object):
         plugin = "contextional.pytest_contextional"
         if "pytest_plugins" in mod:
             str_type = str if sys.version_info >= (3, 0) else basestring
+            if isinstance(mod["pytest_plugins"], tuple):
+                mod["pytest_plugins"] = list(mod["pytest_plugins"])
             if isinstance(mod["pytest_plugins"], list):
                 mod["pytest_plugins"].append(plugin)
-            elif isinstance(mod["pytest_plugins"], tuple):
-                mod["pytest_plugins"] = list(mod["pytest_plugins"]).append(plugin)
             elif isinstance(mod["pytest_plugins"], str_type):
                 mod["pytest_plugins"] = [
                     mod["pytest_plugins"],
@@ -1266,7 +1267,6 @@ class GroupTestCase(object):
 
         x = super(GroupTestCase, self).run(self.temp_result)
         return x
-
 
     def runTest(self):
         __tracebackhide__ = True
