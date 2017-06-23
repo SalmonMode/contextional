@@ -31,9 +31,10 @@ class Helper(unittest.TestCase):
     helper is holding.
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self._level_stack = []
         self._cases = []
+        super(Helper, self).__init__(*args, **kwargs)
 
     def __del__(self):
         self._clear_stack()
