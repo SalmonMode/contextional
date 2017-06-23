@@ -11,7 +11,7 @@ class TestSuccessResult(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         test_program = unittest.TestProgram(
-            module="contextional.tests.success",
+            module="contextional.test_resources.success",
             testRunner=SilentTestRunner,
             argv=["contextional/tests/test_success.py"],
             exit=False,
