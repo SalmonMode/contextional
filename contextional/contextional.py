@@ -819,12 +819,6 @@ class GroupContextManager(object):
             self._helper._set_teardown_level_for_last_case(NullGroup)
 
 
-def report_sections_dec(func):
-    func._report_sections = []
-    func.nodeid = "cheese"
-    return func
-
-
 class GroupTestCase(object):
     """The base test class for a Group.
 
