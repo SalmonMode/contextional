@@ -1,6 +1,8 @@
-[![Build Status](https://travis-ci.org/SalmonMode/contextional.svg?branch=master)](https://travis-ci.org/SalmonMode/contextional) [![PyPI version](https://badge.fury.io/py/contextional.svg)](https://badge.fury.io/py/contextional) [![Docs](https://readthedocs.org/projects/pip/badge/)](http://contextional.readthedocs.io/)
+[![Build status][bs-img]][bs-link]
+[![PyPI version][ppv-img]][ppv-link]
+[![Docs][docs-img]][docs-link]
 
-# `contextional`
+# Contextional
 A context-based functional testing tool for Python
 
 ## Installation
@@ -11,16 +13,16 @@ To install it, just run:
 pip install contextional
 ```
 
-## "`contex`-`tional`?"
+## "contex-tional?"
 
 It's a portmanteau of the words "context" and "functional". These words were chosen because the tool works by using context managers (`with` statements), and allows you to write functional tests (testing as you go).
 
 ## What does it do?
 
-`contextional` does 3 things:
+Contextional does 3 things:
 
 1. It gives you more organized test output by breaking tests into a hierarchical structure based on how the tests were defined, letting you provide descriptive names for each layer of the hierarchy as well as the tests themselves.
-2. It lets you predefine a heirarchy of tests that can be easily reused in as many places as you'd like.
+2. It lets you predefine a hierarchy of tests that can be easily reused in as many places as you'd like.
 3. It allows you to control the exact order in which your tests and fixtures occur, which can be extremely useful for writing comprehensive, functional test suites where you need to test as you go.
 
 ## What does it look like?
@@ -98,3 +100,10 @@ Ran 4 tests in 0.008s
 
 OK
 ```
+
+[bs-img]: https://travis-ci.org/SalmonMode/contextional.svg?branch=master
+[bs-link]: https://travis-ci.org/SalmonMode/contextional
+[ppv-img]: https://badge.fury.io/py/contextional.svg
+[ppv-link]: https://badge.fury.io/py/contextional
+[docs-img]: https://readthedocs.org/projects/pip/badge/
+[docs-link]: http://contextional.readthedocs.io/
