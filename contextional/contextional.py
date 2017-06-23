@@ -138,7 +138,7 @@ class GroupContextManager(object):
             def test(case):
                 case.assertTrue(True)
 
-        MG.create_tests(globals())
+        MG.create_tests()
     """
 
     _helper = helper
@@ -766,7 +766,7 @@ class GroupContextManager(object):
                 child._parent = self._group
                 self._group._children.append(child)
 
-    def create_tests(self, mod):
+    def create_tests(self, mod=None):
         """Create the tests that will be discovered by the testing framework.
 
         :param mod: :func:`.globals`
@@ -796,8 +796,10 @@ class GroupContextManager(object):
                         1,
                     )
 
-            MG.create_tests(globals())
+            MG.create_tests()
         """
+        if mod is None:
+            mod = inspect.stack()[1][0].f_locals
         plugin = "contextional.pytest_contextional"
         if "pytest_plugins" in mod:
             str_type = str if sys.version_info >= (3, 0) else basestring

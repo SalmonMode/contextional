@@ -224,7 +224,7 @@ with GCM("Test Teardown Error") as TTET:
         pass
 
 
-TTET.create_tests(globals())
+TTET.create_tests()
 
 
 expected_stream_output = [

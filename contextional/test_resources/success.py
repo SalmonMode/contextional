@@ -126,7 +126,7 @@ with GCM("Context Description of Deep Tests") as CDDT:
     )
 
 
-CDDT.create_tests(globals())
+CDDT.create_tests()
 
 
 expected_stream_output = [
