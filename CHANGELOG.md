@@ -3,9 +3,11 @@
 ## [Unreleased]
 ### Changed
 - Updated readme.
+- Removed unused code.
 
 ### Fixed
 - Changelog release heading links.
+- Some documentation.
 
 ## [1.2.0] - 2017-06-22
 ### Added
