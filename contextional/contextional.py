@@ -906,132 +906,6 @@ class GroupTestCase(object):
         else:
             delattr(self._helper, attr)
 
-    @classmethod
-    def _set_class_name_for_group(cls, group, fixture_label):
-        """Set the class's __name__ to the given group's full description.
-
-        Given a group, figure out the full description of the group, and set
-        the class's __name__ attribute to be "Contextional Case <fixture>:" +
-        that description, so it might read something like this:
-
-        .. code-block:: none
-
-            Contextional Case:
-              Group A
-                Group B
-
-        This is essential so that if a TestCase has an error while running a
-        group-level fixture(i.e. :meth:`.setUp` or :meth:`.tearDown`), the
-        description of the class that is shown in the error report will show
-        the ancestry of the group, rather than something like:
-
-        .. code-block:: none
-
-            ContextionalCase_60380066538155172867724856122028906249
-
-        This will help debug any errors that might occur during one of these
-        fixtures, as it points to the specific point in the ancestry that had
-        the problem.
-        """
-        cls._err_description = "Contextional Case {}:\n{}".format(
-            fixture_label,
-            group._get_full_ancestry_description(indented=True),
-        )
-        cls.__name__ = cls._err_description
-
-    @classmethod
-    def _set_test_descriptions(cls, setup_ancestry):
-        """Set the test's normal description and full description.
-
-        The test needs to have two descriptions:
-
-        1. A normal description that contains only the descriptions of the
-           groups in its ancestry that it ran the setups for.
-        2. The full description, which contains the descriptions of all the
-           groups in the test's ancestry.
-
-        The normal description is to be used while the tests are running, so
-        the output doesn't repeatedly show the description for ancestor group
-        that two tests have in common, as this could cause confusion regarding
-        the context within which a test is running. For example, in the
-        following output:
-
-        .. code-block:: none
-
-            Group A
-                Group B
-                    test 1 ... ok
-                    test 2 ... ok
-                Group C
-                    test 3 ... ok
-
-        test 1's normal description is:
-
-        .. code-block:: none
-
-            Group A
-                Group B
-                    test 1
-
-        test 2's normal description is:
-
-        .. code-block:: none
-
-                    test 2
-
-        and test 3's normal description is:
-
-        .. code-block:: none
-
-                Group C
-                    test 3
-
-        Should any of these tests fail, though, it would be very useful to know
-        the complete context in which the failed test occured, so the complete
-        ancestry should be shown which each failed test's failure report. For
-        example, test 2's failure report from the previous example should start
-        with this:
-
-        .. code-block:: none
-
-            ===================================================================
-            FAIL:
-            Group A
-              Group B
-                test 2
-            -------------------------------------------------------------------
-        """
-        indent = "  "
-
-        LOGGER.debug("Setting normal test description.")
-        for group in setup_ancestry:
-            if group not in cls._helper._level_stack:
-                indentation = (indent * group._level)
-                level_description = group._description
-                cls._description += "{}{}\n".format(
-                    indentation,
-                    level_description,
-                )
-        cls._description += "{}{}".format(
-            (indent * (cls._group._level + 1)),
-            cls._case._description,
-        )
-
-        LOGGER.debug("Setting full test description.")
-        for group in setup_ancestry:
-            indentation = (indent * group._level)
-            level_description = group._description
-            cls._full_description += "\n{}{}".format(
-                indentation,
-                level_description,
-            )
-
-        cls._full_description = "\n{}\n{}{}".format(
-            cls._group._get_full_ancestry_description(indented=True),
-            (indent * (cls._group._level + 2)),
-            cls._case._description,
-        )
-
     @staticmethod
     def _find_common_ancestor(ancestry_a, ancestry_b):
         """Common ancestry between two :class:`.Group`s.
@@ -1080,42 +954,10 @@ class GroupTestCase(object):
     def setUpClass(cls):
         """The preparations for the test case class that's about to be run.
 
-        The :meth:`.setUpClass` method must first get the next test case from
-        the :attr:`._helper`. It will then use that test case to figure out
-        what setups and/or leftover teardowns need to be run before the test
-        can be performed. The leftover teardowns will be run first (if there
-        are any), and the setups will follow after.
-
-        To determine what teardowns and setups must be run, this method looks
-        at the :attr:`._helper`\ 's :attr:`._level_stack` attribute to see what
-        groups have had their setups run, but not their teardowns. For example,
-        if this is the general group structure:
-
-        .. code-block:: none
-
-            A
-                B
-                    C
-                D
-                    E
-
-        and the current :attr:`._level_stack` is ``[A, B, C]``, but the group
-        that is currently about to run is ``E``, then ``E`` can know that the
-        teardowns for ``C`` needs to be run, followed by those for ``B``, and
-        then the setups for ``D`` can be run, followed by those for ``E``.
-
-        This is also when the runtime description for the test case is
-        established, based on that same :attr:`._level_stack`. In the previous
-        example, the first test in ``E`` would be able to see that the setups
-        for ``A`` had already been run, and that it must've already been
-        written to the output, so it knows that it's description would only
-        have to be:
-
-        .. code-block:: none
-
-                D
-                    E
-                        some test
+        The :meth:`.setUpClass` method gets the next test case from the
+        :attr:`._helper` if it doesn't already have one. That test case will
+        later be used to figure out what setups/teardowns need to be run, and
+        also to run the actual test.
         """
         __tracebackhide__ = True
         cls._case = cls._helper._get_next_test()
