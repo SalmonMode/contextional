@@ -4,6 +4,7 @@
 ### Changed
 - Updated readme.
 - Removed unused code.
+- Adjusted test structure to avoid accidental test discovery.
 
 ### Fixed
 - Changelog release heading links.
