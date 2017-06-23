@@ -1,6 +1,17 @@
 # Changelog
 
 ## [Unreleased]
+### Changed
+- ``globals()`` no longer needs to be passed to ``create_tests()``. NOTE: The
+only reason this implementation works is due to the nature of ``locals()`` and
+namespaces of modules always being implemented by a ``dict``. Luckily, test
+loaders will almost always be looking at the namespace of modules (and you'll
+likely only be putting Contextional tests in a module's namespace), so this
+will work for almost all scenarios. For those that this doesn't work for, the
+namespace object that you want to add the tests to can just be passed as an
+argument to ``create_tests()``.
+- Documentation to reflect the changes to ``create_tests()``.
+
 ### Fixed
 - ``__init__()`` in ``Helper`` not calling parent's (``unittest.TestCase``)
 ``__init__()``.
