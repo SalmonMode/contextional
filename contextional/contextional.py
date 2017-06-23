@@ -776,6 +776,14 @@ class GroupContextManager(object):
         :class:`.TestCase` class for each :class:`.Case` instance to run that
         :class:`.Case` instance.
 
+        This method will try to add the :class:`.TestCase` classes to the
+        namespace of the module that :meth:`.create_tests` was called in. This
+        behavor should only be trusted when :meth:`.create_tests` is called in
+        the local namespace of the module (i.e. not inside a function, class,
+        etc.), and if there's any issues, the namespace object can be passed as
+        an argument to :meth:`.create_tests` (usually done with
+        :func:`.globals`).
+
         Only :class:`.GroupContextManager` instances that call this method will
         have their tests run. If a :class:`.GroupContextManager` instance does
         not call this method, it should only be so that its group structure
