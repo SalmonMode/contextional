@@ -971,6 +971,7 @@ class GroupTestCase(object):
         fails, errors, or is skipped, the test's description in the results
         output provides the complete context for this test case.
         """
+        __tracebackhide__ = True
         self._auto_fail = any(
             group._cascading_failure_in_progress
             for group in self._group._ancestry,
@@ -1011,6 +1012,7 @@ class GroupTestCase(object):
 
     def tearDown(self):
         """The cleanup required to be run after each test in the group."""
+        __tracebackhide__ = True
         if self._auto_fail is True:
             LOGGER.debug(
                 "CASCADING FAILURE - Not tearing down test:\n{}".format(
