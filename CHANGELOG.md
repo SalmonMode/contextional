@@ -8,6 +8,8 @@
 ### Fixed
 - Changelog release heading links.
 - Some documentation.
+- ``GroupTestCase.setUp`` and ``GroupTestCase.tearDown`` no longer show up in
+pytest traceback.
 
 ## [1.2.0] - 2017-06-22
 ### Added
