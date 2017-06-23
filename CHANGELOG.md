@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- ``__init__()`` in ``Helper`` not calling parent's (``unittest.TestCase``)
+``__init__()``.
 
 ## [1.2.1] - 2017-06-23
 ### Added
