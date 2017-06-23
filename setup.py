@@ -1,21 +1,29 @@
-from setuptools import setup, find_packages
+from os import path
+
+from setuptools import setup
 
 
-__VERSION__ = "1.2.0"
+here = path.abspath(path.dirname(__file__))
+
+version_loc = path.join(here, "contextional", "__version__.py")
+about = {}
+with open(version_loc, "r") as f:
+    exec(f.read(), about)
+
 
 setup(
-    name="contextional",
-    version=__VERSION__,
-    description="A functional testing tool for Python",
-    url="https://github.com/SalmonMode/contextional",
+    name=about["__title__"],
+    version=about["__version__"],
+    description=about["__description__"],
+    url=about["__url__"],
     download_url=(
         "https://github.com/SalmonMode/contextional/archive/{}.tar.gz"
-        .format(__VERSION__)
+        .format(about["__version__"])
     ),
-    author="Chris NeJame",
-    author_email="cnejame@truveris.com",
+    author=about["__author__"],
+    author_email=about["__author_email__"],
 
-    license="MIT",
+    license=about["__license__"],
 
     classifiers=[
         "Intended Audience :: Developers",
@@ -38,7 +46,9 @@ setup(
         "testing test-automation functional-testing testing-tools test tests "
         "development organization"
     ),
-    packages=find_packages(exclude=["contrib", "docs", "tests"]),
+    packages=["contextional"],
     install_requires=[
+        "pytest",
     ],
+    test_suite="contextional.tests"
 )

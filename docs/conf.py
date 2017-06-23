@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+
+import os
+import sys
+
 import sphinx_rtd_theme
 # -*- coding: utf-8 -*-
 #
@@ -17,9 +22,9 @@ import sphinx_rtd_theme
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import sys
 sys.path.insert(0, os.path.abspath("../"))
+
+import contextional
 
 
 # -- General configuration ------------------------------------------------
@@ -47,7 +52,8 @@ project = "contextional"
 copyright = "2017, Chris NeJame"
 author = "Chris NeJame"
 
-release = "1.2.0"
+version = contextional.__version__
+release = contextional.__version__
 
 language = None
 
