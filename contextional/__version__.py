@@ -1,7 +1,7 @@
 __title__ = "contextional"
 __description__ = "A functional testing tool for Python"
 __url__ = "https://github.com/SalmonMode/contextional"
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __author__ = "Chris NeJame"
 __author_email__ = "cnejame@truveris.com"
 __license__ = "MIT"

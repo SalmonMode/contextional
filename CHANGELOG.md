@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.3.0] - 2017-06-23
 ### Changed
 - ``globals()`` no longer needs to be passed to ``create_tests()``. NOTE: The
 only reason this implementation works is due to the nature of ``locals()`` and
@@ -214,7 +216,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.2.1...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/SalmonMode/contextional/compare/1.2.1...1.3.0
 [1.2.1]: https://github.com/SalmonMode/contextional/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/SalmonMode/contextional/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/SalmonMode/contextional/compare/1.0.0...1.1.0
