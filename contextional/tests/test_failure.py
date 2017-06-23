@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import unittest
 
 from contextional.tests.tools import SilentTestRunner
-from contextional.tests.failure import expected_stream_output
+from contextional.test_resources.failure import expected_stream_output
 
 
 class TestFailureResult(unittest.TestCase):
