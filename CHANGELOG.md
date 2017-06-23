@@ -1,10 +1,16 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Test suite for setuptools.
+
 ### Changed
 - Updated readme.
 - Removed unused code.
 - Adjusted test structure to avoid accidental test discovery.
+- How package info is stored (now only one file needs to be modified each
+release to change the version number).
+- Travis-CI script so that it uses the standard setuptools test command.
 
 ### Fixed
 - Changelog release heading links.
