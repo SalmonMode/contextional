@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- No longer interferes with nose's ResultProxy class.
 
 ## [1.3.0] - 2017-06-23
 ### Changed
