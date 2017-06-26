@@ -88,11 +88,14 @@ def get_next_test_from_helper():
 class ContextionalTestResultProxy(object):
 
     def __init__(self, result):
-        self._result = getattr(result, "result", result)
-        if hasattr(self._result, "stream"):
-            self.stream = self._result.stream
+        self._true_result = getattr(result, "result", result)
+        self._result = result
+        if hasattr(self._true_result, "stream"):
+            self.stream = self._true_result.stream
 
     def __getattr__(self, name):
+        if name == "showAll":
+            return getattr(self._true_result, name)
         return getattr(self._result, name)
 
     def stopTest(self, test):
@@ -1081,8 +1084,7 @@ class GroupTestCase(object):
         self._currentResult = result
         # nose uses a ResultProxy class, but keeps the actual result as an
         # attribute of the proxy object
-        actual_result = getattr(result, "result", result)
-        self.temp_result = ContextionalTestResultProxy(actual_result)
+        self.temp_result = ContextionalTestResultProxy(result)
 
         self._auto_fail = False
         for group in self._group._ancestry:
@@ -1108,6 +1110,7 @@ class GroupTestCase(object):
 
         for group in self._group._setup_ancestry:
             group._setup_group(result=self.temp_result)
+
         LOGGER.debug("Setups complete.")
 
         x = super(GroupTestCase, self).run(self.temp_result)
@@ -1371,7 +1374,15 @@ class Group(object):
                 self._cascading_failure_in_progress = True
                 self._cascading_failure_root = True
             if result is not None:
-                result.addError(GroupRepr(self), sys.exc_info())
+                repr = GroupRepr(self)
+                if hasattr(result, "_result"):
+                    if hasattr(result._result, "test"):
+                        old_result_test = result._result.test
+                        result._result.test = repr
+                result.addError(repr, sys.exc_info())
+                if hasattr(result, "_result"):
+                    if hasattr(result._result, "test"):
+                        result._result.test = old_result_test
             else:
                 raise
         else:
@@ -1415,7 +1426,15 @@ class Group(object):
                     if hasattr(result, "stream"):
                         if result.showAll:
                             result.stream.write(self._inline_description + " ")
-                    result.addError(GroupRepr(self), sys.exc_info())
+                    repr = GroupRepr(self)
+                    if hasattr(result, "_result"):
+                        if hasattr(result._result, "test"):
+                            old_result_test = result._result.test
+                            result._result.test = repr
+                    result.addError(repr, sys.exc_info())
+                    if hasattr(result, "_result"):
+                        if hasattr(result._result, "test"):
+                            result._result.test = old_result_test
                 else:
                     self._helper._level_stack.remove(self)
                     raise
