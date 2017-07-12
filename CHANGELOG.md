@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- ``GCM`` is now a built in alias for ``GroupContextManager``.
+
 ### Changed
 - No longer need to use the name of the context manager (created with
 ``GroupContextManager``) to add tests/fixtures.
