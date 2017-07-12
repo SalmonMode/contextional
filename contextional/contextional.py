@@ -252,11 +252,11 @@ class GcmMaker(object):
                     if value != "custom":
                         raise AssertionError("value is not custom")
 
-            GroupContextManager.utilize_asserts(CustomAsserts)
+            GCM.utilize_asserts(CustomAsserts)
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_test("is custom")
+                @GCM.add_test("is custom")
                 def test(case):
                     case.assertCustom("custom")
 
@@ -306,7 +306,7 @@ class Context(object):
         group.
     :type cascading_failure: bool.
 
-    A group manager is used to handle constructing groups, their fixtures,
+    A :class:`Context` is used to handle constructing groups, their fixtures,
     child groups, and tests through the various decorators and methods
     it provides.
 
@@ -328,9 +328,9 @@ class Context(object):
 
     Example::
 
-        with GroupContextManager("Main Group") as MG:
+        with GCM("Main Group") as MG:
 
-            @MG.add_test("something")
+            @GCM.add_test("something")
             def test(case):
                 case.assertTrue(True)
 
@@ -385,9 +385,9 @@ class Context(object):
 
         Example::
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_test("something")
+                @GCM.add_test("something")
                 def test(case):
                     case.assertTrue(True)
 
@@ -452,7 +452,7 @@ class Context(object):
         want keyword arguments to be passed to your setups/teardowns. For
         example, the following code::
 
-            with GroupContextManager("Some Group") as SG:
+            with GCM("Some Group") as SG:
 
                 params = (
                     {
@@ -466,29 +466,29 @@ class Context(object):
                         "num_1": 1,
                     },
                 )
-                with SG.add_group("Child Group", params=params):
+                with GCM.add_group("Child Group", params=params):
 
-                    @SG.add_setup
+                    @GCM.add_setup
                     def setUp(num_1, num_2, num_3):
-                        SG.sum = num_1 + num_2 + num_3
+                        GCM.sum = num_1 + num_2 + num_3
 
-                    @SG.add_test("sum is 6")
+                    @GCM.add_test("sum is 6")
                     def test(case):
-                        case.assertEqual(SG.sum, 6)
+                        case.assertEqual(GCM.sum, 6)
 
                 params = {
                     "set #1": (1, 2, 3),
                     "set #2": (3, 2, 1),
                 }
-                with SG.add_group("Another Child Group", params=params):
+                with GCM.add_group("Another Child Group", params=params):
 
-                    @SG.add_setup
+                    @GCM.add_setup
                     def setUp(num_1, num_2, num_3):
-                        SG.sum = num_1 + num_2 + num_3
+                        GCM.sum = num_1 + num_2 + num_3
 
-                    @SG.add_test("sum is 6")
+                    @GCM.add_test("sum is 6")
                     def test(case):
-                        case.assertEqual(SG.sum, 6)
+                        case.assertEqual(GCM.sum, 6)
 
         will show the following output:
 
@@ -557,16 +557,16 @@ class Context(object):
 
         Example::
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_setup
+                @GCM.add_setup
                 def setUp():
-                    MG.thing = 1
+                    GCM.thing = 1
 
-                @MG.add_test("thing is 1")
+                @GCM.add_test("thing is 1")
                 def test(case):
                     case.assertEqual(
-                        MG.thing,
+                        GCM.thing,
                         1,
                     )
 
@@ -593,20 +593,20 @@ class Context(object):
 
         Example::
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_setup
+                @GCM.add_setup
                 def setUp():
-                    MG.thing = 0
+                    GCM.thing = 0
 
-                @MG.add_test_setup
+                @GCM.add_test_setup
                 def setUpTest():
-                    MG.thing += 1
+                    GCM.thing += 1
 
-                @MG.add_test("thing is 1")
+                @GCM.add_test("thing is 1")
                 def test(case):
                     case.assertEqual(
-                        MG.thing,
+                        GCM.thing,
                         1,
                     )
 
@@ -641,35 +641,35 @@ class Context(object):
 
         Example::
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_setup
+                @GCM.add_setup
                 def setUp():
-                    MG.thing = 0
+                    GCM.thing = 0
 
-                with MG.add_group("Child A"):
+                with GCM.add_group("Child A"):
 
-                    @MG.add_setup
+                    @GCM.add_setup
                     def setUp():
-                        MG.thing += 2
+                        GCM.thing += 2
 
-                    @MG.add_teardown
+                    @GCM.add_teardown
                     def tearDown():
-                        MG.thing -= 1
+                        GCM.thing -= 1
 
-                    @MG.add_test("thing is 2")
+                    @GCM.add_test("thing is 2")
                     def test(case):
                         case.assertEqual(
-                            MG.thing,
+                            GCM.thing,
                             2,
                         )
 
-                with MG.add_group("Child B"):
+                with GCM.add_group("Child B"):
 
-                    @MG.add_test("thing is now 1")
+                    @GCM.add_test("thing is now 1")
                     def test(case):
                         case.assertEqual(
-                            MG.thing,
+                            GCM.thing,
                             1,
                         )
 
@@ -696,31 +696,31 @@ class Context(object):
 
         Example::
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_setup
+                @GCM.add_setup
                 def setUp():
-                    MG.thing = 0
+                    GCM.thing = 0
 
-                @MG.add_test_setup
+                @GCM.add_test_setup
                 def setUpTest():
-                    MG.thing += 1
+                    GCM.thing += 1
 
-                @MG.add_test_teardown
+                @GCM.add_test_teardown
                 def setUpTest():
-                    MG.thing -= 1
+                    GCM.thing -= 1
 
-                @MG.add_test("thing is 1")
+                @GCM.add_test("thing is 1")
                 def test(case):
                     case.assertEqual(
-                        MG.thing,
+                        GCM.thing,
                         1,
                     )
 
-                @MG.add_test("thing is still 1")
+                @GCM.add_test("thing is still 1")
                 def test(case):
                     case.assertEqual(
-                        MG.thing,
+                        GCM.thing,
                         1,
                     )
 
@@ -760,11 +760,11 @@ class Context(object):
                     if value != "custom":
                         raise AssertionError("value is not custom")
 
-            GroupContextManager.utilize_asserts(CustomAsserts)
+            GCM.utilize_asserts(CustomAsserts)
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_test("is custom")
+                @GCM.add_test("is custom")
                 def test(case):
                     case.assertCustom("custom")
 
@@ -818,44 +818,44 @@ class Context(object):
 
         Example::
 
-            with GroupContextManager("Predefined Group") as PG:
+            with GCM("Predefined Group") as PG:
 
-                @PG.add_test("value is 1")
+                @GCM.add_test("value is 1")
                 def test(case):
                     case.assertEqual(
-                        PG.value,
+                        GCM.value,
                         1,
                     )
 
-                with PG.add_group("Sub Group"):
+                with GCM.add_group("Sub Group"):
 
-                    @PG.add_teardown
+                    @GCM.add_teardown
                     def tearDown():
-                        PG.value = 2
+                        GCM.value = 2
 
-                    @PG.add_test("value is still 1")
+                    @GCM.add_test("value is still 1")
                     def test(case):
                         case.assertEqual(
-                            PG.value,
+                            GCM.value,
                             1,
                         )
 
-            with GroupContextManager("Another Predefined Group") as APG:
+            with GCM("Another Predefined Group") as APG:
 
-                @APG.add_test("value is now 2")
+                @GCM.add_test("value is now 2")
                 def test(case):
                     case.assertEqual(
-                        APG.value,
+                        GCM.value,
                         2,
                     )
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_setup
+                @GCM.add_setup
                 def setUp():
-                    MG.value = 1
+                    GCM.value = 1
 
-                MG.includes(
+                GCM.includes(
                     PG,
                     APG,
                 )
@@ -897,44 +897,44 @@ class Context(object):
 
         Example::
 
-            with GroupContextManager("Predefined Group") as PG:
+            with GCM("Predefined Group") as PG:
 
-                @PG.add_test("value is 1")
+                @GCM.add_test("value is 1")
                 def test(case):
                     case.assertEqual(
-                        PG.value,
+                        GCM.value,
                         1,
                     )
 
-                with PG.add_group("Sub Group"):
+                with GCM.add_group("Sub Group"):
 
-                    @PG.add_teardown
+                    @GCM.add_teardown
                     def tearDown():
-                        PG.value = 2
+                        GCM.value = 2
 
-                    @PG.add_test("value is still 1")
+                    @GCM.add_test("value is still 1")
                     def test(case):
                         case.assertEqual(
-                            PG.value,
+                            GCM.value,
                             1,
                         )
 
-            with GroupContextManager("Another Predefined Group") as APG:
+            with GCM("Another Predefined Group") as APG:
 
-                @APG.add_test("value is still 1 here")
+                @GCM.add_test("value is still 1 here")
                 def test(case):
                     case.assertEqual(
-                        APG.value,
+                        GCM.value,
                         1,
                     )
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_setup
+                @GCM.add_setup
                 def setUp():
-                    MG.value = 1
+                    GCM.value = 1
 
-                MG.combine(
+                GCM.combine(
                     PG,
                     APG,
                 )
@@ -991,16 +991,16 @@ class Context(object):
 
         Example::
 
-            with GroupContextManager("Main Group") as MG:
+            with GCM("Main Group") as MG:
 
-                @MG.add_setup
+                @GCM.add_setup
                 def setUp():
-                    MG.value = 1
+                    GCM.value = 1
 
-                @MG.add_test("value is 1")
+                @GCM.add_test("value is 1")
                 def test(case):
                     case.assertEqual(
-                        MG.value,
+                        GCM.value,
                         1,
                     )
 
@@ -1383,9 +1383,9 @@ class Group(object):
 
         If groups are declared like this::
 
-            with such.A("A") as it:
-                with it.having("B"):
-                    with it.having("C"):
+            with GCM("A") as MG:
+                with GCM.add_group("B"):
+                    with GCM.add_group("C"):
                         # do something
 
         Group A would be the parent of Group B, and Group B would be the parent
@@ -1408,9 +1408,9 @@ class Group(object):
 
         If groups are declared like this::
 
-            with such.A("A") as it:
-                with it.having("B"):
-                    with it.having("C"):
+            with GCM("A") as MG:
+                with GCM.add_group("B"):
+                    with GCM.add_group("C"):
                         # do something
 
         Group A would be the parent of Group B, and Group B would be the parent
@@ -1427,9 +1427,9 @@ class Group(object):
 
         If groups are declared like this::
 
-            with such.A("A") as it:
-                with it.having("B"):
-                    with it.having("C"):
+            with GCM("A") as MG:
+                with GCM.add_group("B"):
+                    with GCM.add_group("C"):
                         # do something
 
         Group A would be the parent of Group B, and Group B would be the parent

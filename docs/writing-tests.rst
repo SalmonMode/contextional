@@ -14,20 +14,20 @@ You should know that any code you've written along side your fixture and test
 definitions is getting run, so you can use this to your advantage to influence
 how your fixtures and tests get defined. But none of the tests or fixtures you
 defined will get used if you don't call :meth:`.create_tests` on the
-:class:`.GroupContextManager` instance that you made (see below for
+:class:`.Context` instance that you made (see below for
 example usage).
 
 This might seem odd, but it's required for two reasons:
 
-1. It allows you to create a :class:`.GroupContextManager`, containing
+1. It allows you to create a :class:`.Context`, containing
    layers of tests and fixtures, that can be included in other
-   :class:`.GroupContextManager` objects, and it will only get run if
-   :meth:`.create_tests` is called by those :class:`.GroupContextManager`
+   :class:`.Context` objects, and it will only get run if
+   :meth:`.create_tests` is called by those :class:`.Context`
    objects.
 2. Contextional needs to modify the global namespace of the module you want the
    tests to be created in so that it can create the :class:`unittest.TestCase`
-   classes in it, which is why you must pass :func:`.globals` to
-   :meth:`.create_tests`.
+   classes in it (depending on the Python implementation you're using, this may
+   also require you to pass :func:`.globals` to :meth:`.create_tests`).
 
 **TL;DR** The examples below should answer most questions you have.
 
@@ -128,45 +128,45 @@ Yes, you'll need to install ``contextional`` through ``pip``, like so:
 Do I need to import anything?
 -----------------------------
 
-Yes, but luckily, you only need to import :class:`.GroupContextManager`, like
+Yes, but luckily, you only need to import :obj:`.GCM` (:class:`GcmMaker`), like
 this::
 
-    from contextional import GroupContextManager
+    from contextional import GCM
 
 How do I create the first layer?
 --------------------------------
 
 To create the first layer, you'll just need to import
-:class:`.GroupContextManager` and use a ``with`` statement to create a
-:class:`.GroupContextManager` instance while giving the first layer of that
-:class:`.GroupContextManager` a description. That instance is what you'll be
+:obj:`.GCM` and use a ``with`` statement to create a
+:class:`.Context` instance while giving the first layer of that
+:class:`.Context` a description. That instance is what you'll be
 using to add fixtures, tests, and child layers.
 
 Here's what this looks like::
 
-    from contextional import GroupContextManager
+    from contextional import GCM
 
 
-    with GroupContextManager("First Layer") as FL:
+    with GCM("First Layer") as FL:
 
 Here we've given the first layer a description of "First Layer", and created a
-:class:`.GroupContextManager` instance, ``FL``, that we can use to add
+:class:`.Context` instance, ``FL``, that we can use to add
 fixtures, tests, and child layers.
 
 How do I add a test?
 --------------------
 
-For that, you would use :meth:`.GroupContextManager.add_test`, which is a
+For that, you would use :meth:`.GCM.add_test`, which is a
 decorator that takes a single argument (the description of the test).
 
 Here's what it will look like once we've added a test::
 
-    from contextional import GroupContextManager
+    from contextional import GCM
 
 
-    with GroupContextManager("First Layer") as FL:
+    with GCM("First Layer") as FL:
 
-        @FL.add_test("1 is True")
+        @GCM.add_test("1 is True")
         def test(case):
             case.assertTrue(1)
 
@@ -175,23 +175,23 @@ How do I get the tests to run?
 
 After you're done defining everything, you may have noticed that your tests
 didn't actually run. That's likely because you will need to have your
-:class:`.GroupContextManager` call :meth:`.create_tests`, and make sure you
+:obj:`.GCM` call :meth:`.create_tests`, and make sure you
 pass it :func:`.globals` as an argument. This is what creates the stuff that
 your testing framework will actually use.
 
 Here's what it looks like::
 
-    from contextional import GroupContextManager
+    from contextional import GCM
 
 
-    with GroupContextManager("First Layer") as FL:
+    with GCM("First Layer") as FL:
 
-        @FL.add_test("1 is True")
+        @GCM.add_test("1 is True")
         def test(case):
             case.assertTrue(1)
 
 
-    FL.create_tests(globals())
+    FL.create_tests()
 
 With that, you can just use your testing framework like you normally would, and
 it will automatically detect and run these tests (assuming it works with tests
@@ -209,6 +209,13 @@ If you do that, the test output for this would look something like this:
     First Layer
       1 is True ... ok
 
+.. note::
+    If you experience any problems with :meth:`create_tests`, try passing it
+    ``globals()`` (i.e. ``FL.create_tests(globals())``). It tries to
+    automatically grab the namespace of the module it's called in, but,
+    depending on the implementation of Python that you're using, it might have
+    some issues, but this should resolve them.
+
 Do I have to name the test "\ ``test``\ "?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -218,7 +225,7 @@ prefer to name it something else, you absolutely can. The same goes for
 fixtures, as well.
 
 In fact, every test and fixture that you define and decorate using the
-:class:`.GroupContextManager`'s decorator methods will not exist after the
+:obj:`.GCM`'s decorator methods will not exist after the
 decorator is evaluated, as the decorator doesn't return a function to replace
 it. This was done intentionally so that nothing is leftover that could
 be found by the test discovery process that you wouldn't want to be found.
@@ -228,7 +235,7 @@ Does the test have to take an argument?
 
 Nope. But if you have it take an argument, you can use that argument to access
 the :class:`unittest.TestCase` assert method and any assert methods you
-provided with :class:`.GroupContextManager.utilize_asserts`.
+provided with :method:`.GCM.utilize_asserts`.
 
 Does the argument that the test takes have to be named "\ ``case``\ "?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -251,29 +258,29 @@ How do I add fixtures (i.e. setups and teardowns)?
 Adding fixtures is also done through a decorator. You have the following
 options for fixtures:
 
-* :meth:`.GroupContextManager.add_setup`
-* :meth:`.GroupContextManager.add_test_setup`
-* :meth:`.GroupContextManager.add_test_teardown`
-* :meth:`.GroupContextManager.add_teardown`
+* :meth:`.GCM.add_setup`
+* :meth:`.GCM.add_test_setup`
+* :meth:`.GCM.add_test_teardown`
+* :meth:`.GCM.add_teardown`
 
 
 To add a setup for the layer, you would do something like this::
 
-    from contextional import GroupContextManager
+    from contextional import GCM
 
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
-        @MG.add_setup
+        @GCM.add_setup
         def setUp():
-            MG.value = 1
+            GCM.value = 1
 
-        @MG.add_test("value is 1")
+        @GCM.add_test("value is 1")
         def test(case):
-            case.assertEqual(MG.value, 1)
+            case.assertEqual(GCM.value, 1)
 
 
-    MG.create_tests(globals())
+    MG.create_tests()
 
 And with that, our test output would look like this:
 
@@ -294,55 +301,54 @@ Also, if the fixtures are test-level fixtures (i.e. test setups and test
 teardowns), then they will definitely not be used if there aren't any tests
 defined in the same layer.
 
-How do I predefine a :class:`.GroupContextManager` that I can use elsewhere?
+How do I predefine a :class:`.Context` that I can use elsewhere?
 ----------------------------------------------------------------------------
 
-Whenever you define a :class:`.GroupContextManager`, it doesn't *need* to have
-its tests run. That only happens if you have it call :meth:`.create_tests`.
-However, you can create a :class:`.GroupContextManager`, which contains layers
-of fixtures and tests, that you can include in any other
-:class:`.GroupContextManager` at any point, and even use it multiple times in
-the same :class:`.GroupContextManager`.
+Whenever you define a :class:`.Context`, it doesn't *need* to have its tests
+run. That only happens if you have it call :meth:`.create_tests`. However, you
+can create a :class:`.Context`, which contains layers of fixtures and tests,
+that you can include in any other :class:`.Context` at any point,
+and even use it multiple times in the same :class:`.Context`.
 
-To do this, you just need to create a :class:`.GroupContextManager` containing
+To do this, you just need to create a :class:`.Context` containing
 the layers and fixtures that you want to use elsewhere, using the exact same
-syntax that you would use with any other :class:`.GroupContextManager`, but
+syntax that you would use with any other :class:`.Context`, but
 don't have it call :meth:`.create_tests`. Once you've done this, go to where
-you are creating the :class:`.GroupContextManager` that you want to include
-your predefined :class:`.GroupContextManager`, and have it call
+you are creating the :class:`.Context` that you want to include
+your predefined :class:`.Context`, and have it call
 :meth:`.includes` at the point that you want it to include the predefined
-:class:`.GroupContextManager`.
+:class:`.Context`.
 
 The process looks something like this::
 
-    from contextional import GroupContextManager
+    from contextional import GCM
 
 
-    with GroupContextManager("Predefined Group") PG:
+    with GCM("Predefined Group") PG:
 
-        @PG.add_setup
+        @GCM.add_setup
         def setUp():
-            PG.value += 1
+            GCM.value += 1
 
-        @PG.add_test("value is now 2")
+        @GCM.add_test("value is now 2")
         def test(case):
-            case.assertEqual(PG.value, 2)
+            case.assertEqual(GCM.value, 2)
 
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
-        @MG.add_setup
+        @GCM.add_setup
         def setUp():
-            MG.value = 1
+            GCM.value = 1
 
-        @MG.add_test("value is 1")
+        @GCM.add_test("value is 1")
         def test(case):
-            case.assertEqual(MG.value, 1)
+            case.assertEqual(GCM.value, 1)
 
-        MG.includes(PG)
+        GCM.includes(PG)
 
 
-    MG.create_tests(globals())
+    MG.create_tests()
 
 The output for this would look something like this:
 
@@ -353,12 +359,12 @@ The output for this would look something like this:
       Predefined Group
         value is now 2 ... ok
 
-Can I use the predefined :class:`.GroupContextManager` in more than one spot?
+Can I use the predefined :class:`.Context` in more than one spot?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Yep!
 
-Even multiple times in the same :class:`.GroupContextManager`?
+Even multiple times in the same :class:`.Context`?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Yup!
@@ -368,26 +374,25 @@ What about in other modules than the one I created it in?
 
 Absolutely!
 
-The :class:`.GroupContextManager` that you want to include in other any
-:class:`.GroupContextManager` is just like any other object. Even though it was
+The :class:`.Context` that you want to include in other any
+:class:`.Context` is just like any other object. Even though it was
 created using context managers, nothing really happens to it once the outermost
 context is exited. Because of this, all you need to do is import it in the
 module you want to use it.
 
 So if you started it off by saying::
 
-    with GroupContextManager("Includable Group") as IG:
+    with GCM("Includable Group") as IG:
 
 then you would only need to say this in the module that would use it::
 
     from some.module import IG
 
-What if I want to include the predefined tests, fixtures, and/or child groups
-from a :class:`.GroupContextManager` alongside those from my current group?
+What if I want to include the predefined tests, fixtures, and/or child groups from a :class:`.Context` alongside those from my current group?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can just use :meth:`combine`, then. It takes the tests, fixtures, and child
-groups of a :class:`.GroupContextManager` and makes them part of the group
+groups of a :class:`.Context` and makes them part of the group
 you're merging them into, so they won't just be added as a child group.
 
 This is useful if you know you are going to be using identical tests but on
@@ -399,34 +404,34 @@ It looks something like this::
         return num_1 * num_2
 
 
-    with GroupContextManager("value test") as vt:
+    with GCM("value test") as vt:
 
-        @vt.add_test("value")
+        @GCM.add_test("value")
         def test(case):
             case.assertEqual(
-                vt.value,
-                vt.expected_value,
+                GCM.value,
+                GCM.expected_value,
             )
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
-        with MG.add_group("2 and 3"):
+        with GCM.add_group("2 and 3"):
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp():
-                MG.value = multiplier(2, 3)
-                MG.expected_value = 6
+                GCM.value = multiplier(2, 3)
+                GCM.expected_value = 6
 
-            MG.combine(vt)
+            GCM.combine(vt)
 
-        with MG.add_group("3 and 5"):
+        with GCM.add_group("3 and 5"):
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp():
-                MG.value = multiplier(3, 5)
-                MG.expected_value = 15
+                GCM.value = multiplier(3, 5)
+                GCM.expected_value = 15
 
-            MG.combine(vt)
+            GCM.combine(vt)
 
 
 Output:
@@ -447,98 +452,63 @@ instance attributes in :meth:`setUp` or :meth:`tearDown` (i.e. :obj:`self`) to
 give your fixtures and tests access to persistent resources.
 
 To let you do something similar, Contextional uses some Python magic to let
-each :class:`.GroupContextManager` access a shared, persistent namespace.
+each :class:`.Context` access a shared, persistent namespace.
 
 You may have noticed it in the examples above, but the shared, persistent
-namespace is accessed through the variable name for whatever
-:class:`.GroupContextManager` you are building at that moment. For example,
-take a look at the following code::
-
-    from contextional import GroupContextManager
-
-
-    with GroupContextManager("Predefined Group") PG:
-
-        @PG.add_test("value is 1")
-        def test(case):
-            case.assertEqual(PG.value, 1)
-
-
-    with GroupContextManager("Main Group") as MG:
-
-        @MG.add_setup
-        def setUp():
-            MG.value = 1
-
-        MG.includes(PG)
-
-
-    MG.create_tests(globals())
-
-In the test, while building the :class:`.GroupContextManager` named ``PG``,
-\ ``PG.value`` is referenced, but at no point was a ``PG.value`` set...
-
-... or so it would seem.
-
-While building ``MG``, in its ``setUp``, we set ``MG.value`` to ``1``. That's
-where ``PG.value`` gets set. This is because both ``MG`` and ``PG`` are
-accessing the same persistent namespace in order to store and reference
-resources.
-
-**TL;DR** Make the resource an attribute of the :class:`.GroupContextManager`
-that you're currently building (this should be done in a fixture), and other
-fixtures and tests can reference it as an attribute of the
-:class:`.GroupContextManager` that they were defined in.
-
-For an example, check out how the code above handles the ``value`` attribute of
-the ``MG`` and ``PG`` :class:`.GroupContextManager` instances.
+namespace is accessed through :obj:`GCM`. Just access an attribute of
+:obj:`GCM` in any test or fixture, and as long as it isn't one of it's normal
+attributes, you'll be referencing a persistent namespace from one test/fixture
+to another.
 
 Can I see a simple example to get me started?
 --------------------------------------------------
 
 Sure! Here you go::
 
-    from contextional import GroupContextManager
+    from contextional import GCM
 
 
     with GroupContextManager("Predefined Group") PG:
 
-        @PG.add_test("value is still 1")
+        @GCM.add_test("value is still 1")
         def test(case):
-            case.assertEqual(PG.value, 1)
+            case.assertEqual(GCM.value, 1)
 
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
-        @MG.add_setup
+        @GCM.add_setup
         def setUp():
-            MG.value = 1
+            GCM.value = 1
 
-        @MG.add_test("value is 1")
+        @GCM.add_test("value is 1")
         def test(case):
-            case.assertEqual(MG.value, 1)
+            case.assertEqual(GCM.value, 1)
 
-        MG.includes(PG)
+        GCM.includes(PG)
 
-        with MG.add_group("Child Group"):
+        with GCM.add_group("Child Group"):
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp():
-                MG.value += 1
+                GCM.value += 1
 
-            @MG.add_test("value is now 2")
+            @GCM.add_test("value is now 2")
             def test(case):
-                case.assertEqual(MG.value, 2)
+                case.assertEqual(GCM.value, 2)
 
-        with MG.add_group("Another Child Group"):
+        with GCM.add_group("Another Child Group"):
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp():
-                MG.value += 1
+                GCM.value += 1
 
-            @MG.add_test("value is now 3")
+            @GCM.add_test("value is now 3")
             def test(case):
-                case.assertEqual(MG.value, 3)
+                case.assertEqual(GCM.value, 3)
+
+
+    MG.create_tests()
 
 That would output the following:
 
@@ -582,7 +552,7 @@ for loop::
 
         for letter in ascii_lowercase:
 
-            @MG.add_test("contains '{}'".format(letter))
+            @GCM.add_test("contains '{}'".format(letter))
             def test(case):
                 case.assertIn(letter, main_string)
 
@@ -611,9 +581,9 @@ You can even do it for whole child groups::
 
         for letter in ascii_lowercase:
 
-            with MG.add_group("Letter: '{}'".format(letter.upper())):
+            with GCM.add_group("Letter: '{}'".format(letter.upper())):
 
-                @MG.add_test("is present")
+                @GCM.add_test("is present")
                 def test(case):
                     case.assertIn(letter, main_string)
 
@@ -660,23 +630,23 @@ First, is how you provide the collection of sets.
 You can either put each set of parameters into a ``set``/\ ``list``/
 \ ``tuple``, like so::
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
         my_params = (
             (1, 3, 5),
             (2, 4, 6),
         )
-        with MG.add_group("Parameterized Group:", params=my_params):
+        with GCM.add_group("Parameterized Group:", params=my_params):
 
 or you can put them in a ``Mapping`` (e.g. a ``dict``), like this::
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
         my_params = {
             "odds": (1, 3, 5),
             "evens": (2, 4, 6),
         }
-        with MG.add_group("Parameterized Group:", params=my_params):
+        with GCM.add_group("Parameterized Group:", params=my_params):
 
 The difference, is in the test output. Each version of the parameterized group
 will need to distinguish itself from the other versions of itself so that
@@ -723,19 +693,19 @@ unpacked with a single ``*``, so you can either have your :meth:`setUp`
 functions catch them all with a ``*args``, or just make sure they take the
 right number of ordered arguments. It will look something like this::
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
         my_params = (
             (1, 3, 5),
             (2, 4, 6),
         )
-        with MG.add_group("Parameterized Group:", params=my_params):
+        with GCM.add_group("Parameterized Group:", params=my_params):
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp(*args):
                 # some code
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp(num_1, num_2, num_3):
                 # some code
 
@@ -744,7 +714,7 @@ unpacked with a ``**``, so your :meth:`setUp` functions can catch them all with
 a ``**kwargs``, or they can accept the appropriately name keyword arguments.
 That will look something like this::
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
         my_params = (
             {
@@ -758,13 +728,13 @@ That will look something like this::
                 "num_3": 6,
             },
         )
-        with MG.add_group("Parameterized Group:", params=my_params):
+        with GCM.add_group("Parameterized Group:", params=my_params):
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp(**kwargs):
                 # some code
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp(num_1, num_2, num_3):
                 # some code
 

@@ -58,28 +58,30 @@ Quick Example
 
 Code::
 
-    from contextional import GroupContextManager
+    from contextional import GroupContextManager as GCM
 
 
-    with GroupContextManager("Main Group") as MG:
+    with GCM("Main Group") as MG:
 
-        @MG.add_setup
+        @GCM.add_setup
         def setUp():
-            MG.value = 1
+            GCM.value = 1
 
-        @MG.add_test("value is 1")
+        @GCM.add_test("value is 1")
         def test(case):
-            case.assertEqual(MG.value, 1)
+            case.assertEqual(GCM.value, 1)
 
-        with MG.add_group("Child Group"):
+        with GCM.add_group("Child Group"):
 
-            @MG.add_setup
+            @GCM.add_setup
             def setUp():
-                MG.value += 1
+                GCM.value += 1
 
-            @MG.add_test("value is now 2")
+            @GCM.add_test("value is now 2")
             def test(case):
-                case.assertEqual(MG.value, 2)
+                case.assertEqual(GCM.value, 2)
+
+    MG.create_tests()
 
 Test output:
 
