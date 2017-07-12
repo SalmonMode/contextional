@@ -30,58 +30,58 @@ Contextional does 3 things:
 ### code:
 
 ```python
-from contextional import GroupContextManager
+from contextional import GCM
 
 
-with GroupContextManager("Predefined Group") as predefined_c:
+with GCM("Predefined Group") as PG:
 
-    @predefined_c.add_test("value is still 2")
+    @GCM.add_test("value is still 2")
     def test(case):
         case.assertEqual(
-            predefined_c.value,
+            GCM.value,
             2,
         )
 
 
-with GroupContextManager("Main Group") as c:
+with GCM("Main Group") as MG:
 
-    @c.add_setup
+    @GCM.add_setup
     def setUp():
-        c.value = 0
+        GCM.value = 0
 
-    @c.add_test_setup
+    @GCM.add_test_setup
     def testSetUp():
-        c.value += 1
+        GCM.value += 1
 
-    @c.add_test("value is 1")
+    @GCM.add_test("value is 1")
     def test(case):
         case.assertEqual(
-            c.value,
+            GCM.value,
             1,
         )
 
-    @c.add_test("value is 2")
+    @GCM.add_test("value is 2")
     def test():
-        assert c.value == 2
+        assert GCM.value == 2
 
-    with c.add_group("Child Group"):
+    with GCM.add_group("Child Group"):
 
-        @c.add_setup
+        @GCM.add_setup
         def setUp():
-            c.value += 1
+            GCM.value += 1
 
-        @c.add_test("value is now 3")
+        @GCM.add_test("value is now 3")
         def test():
-            assert c.value == 3
+            assert GCM.value == 3
 
-        @c.add_teardown
+        @GCM.add_teardown
         def tearDown():
-            c.value -= 1
+            GCM.value -= 1
 
-    c.includes(predefined_c)
+    GCM.includes(PG)
 
 
-c.create_tests(globals())
+MG.create_tests()
 ```
 
 ### output
