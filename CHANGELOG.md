@@ -1,6 +1,11 @@
 # Changelog
 
 ## [Unreleased]
+### Changed
+- No longer need to use the name of the context manager (created with
+``GroupContextManager``) to add tests/fixtures.
+- No longer need to use the name of the context manager (created with
+``GroupContextManager``) to access the shared namespace.
 
 ## [1.3.1] - 2017-06-26
 ### Fixed
