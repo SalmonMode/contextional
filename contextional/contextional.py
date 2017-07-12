@@ -104,7 +104,200 @@ class ContextionalTestResultProxy(object):
         self._result.stopTest(test)
 
 
-class GroupContextManager(object):
+class GcmMaker(object):
+
+    _helper = helper
+
+    def __init__(self):
+        self._current_context = None
+
+    def __call__(self, description, cascading_failure=True):
+        new_context = Context(description, cascading_failure)
+        new_context._parent_context = self._current_context
+        new_context._gcm = self
+        self._current_context = new_context
+        return self._current_context
+
+    def __getattr__(self, attr):
+        """Defer attribute lookups to helper."""
+        return getattr(self._helper, attr)
+
+    def __setattr__(self, attr, value):
+        """Defer attribute lookups to helper."""
+        if attr in self.__dict__.keys() or attr == "_group":
+            super(Context, self).__setattr__(attr, value)
+        else:
+            setattr(self._helper, attr, value)
+
+    def __delattr__(self, attr):
+        """Defer attribute lookups to helper."""
+        if attr in self.__dict__.keys() or attr == "_group":
+            super(Context, self).__delattr__(attr)
+        else:
+            delattr(self._helper, attr)
+
+    @property
+    def add_test(self):
+        """Forward the call to the current :class:`Context`.
+
+        For a more detailed description, go to :meth:`Context.add_test`.
+        """
+
+        if self._current_context is None:
+            raise AttributeError("No current context.")
+        return self._current_context.add_test
+
+    @property
+    def add_group(self):
+        """Forward the call to the current :class:`Context`.
+
+        For a more detailed description, go to :meth:`Context.add_group`.
+        """
+
+        if self._current_context is None:
+            raise AttributeError("No current context.")
+        return self._current_context.add_group
+
+    @property
+    def add_setup(self):
+        """Forward the call to the current :class:`Context`.
+
+        For a more detailed description, go to :meth:`Context.add_setup`.
+        """
+
+        if self._current_context is None:
+            raise AttributeError("No current context.")
+        return self._current_context.add_setup
+
+    @property
+    def add_test_setup(self):
+        """Forward the call to the current :class:`Context`.
+
+        For a more detailed description, go to :meth:`Context.add_test_setup`.
+        """
+
+        if self._current_context is None:
+            raise AttributeError("No current context.")
+        return self._current_context.add_test_setup
+
+    @property
+    def add_teardown(self):
+        """Forward the call to the current :class:`Context`.
+
+        For a more detailed description, go to :meth:`Context.add_teardown`.
+        """
+
+        if self._current_context is None:
+            raise AttributeError("No current context.")
+        return self._current_context.add_teardown
+
+    @property
+    def add_test_teardown(self):
+        """Forward the call to the current :class:`Context`.
+
+        For a more detailed description, go to
+        :meth:`Context.add_test_teardown`.
+        """
+
+        if self._current_context is None:
+            raise AttributeError("No current context.")
+        return self._current_context.add_test_teardown
+
+    @property
+    def includes(self):
+        """Forward the call to the current :class:`Context`.
+
+        For a more detailed description, go to :meth:`Context.includes`.
+        """
+
+        if self._current_context is None:
+            raise AttributeError("No current context.")
+        return self._current_context.includes
+
+    @property
+    def combine(self):
+        """Forward the call to the current :class:`Context`.
+
+        For a more detailed description, go to :meth:`Context.combine`.
+        """
+
+        if self._current_context is None:
+            raise AttributeError("No current context.")
+        return self._current_context.combine
+
+    def utilize_asserts(self, container):
+        """Allow the use of custom assert method in tests.
+
+        :param container:
+            A container of functions/methods to be used as assert methods
+        :type container: class, list of functions, or function
+
+        Accepts a class, list/set/dictionary of functions, or a function.
+
+        If a class is passed in, this takes all the methods of that class and
+        puts them into a dictionary, where the keys are the function names, and
+        the values are the functions themselves. If a list or set is passed in,
+        a dictionary is constructed using the names of the functions as the
+        keys with the functions being the values. If a function is passed in,
+        it is put into a dictionary, where the key is the function's name and
+        the value is the function itself. If a dictionary is passed in, it is
+        assumed that the keys are the function names, and the values are the
+        functions themselves.
+
+        Example::
+
+            class CustomAsserts(object):
+
+                def assertCustom(self, value):
+                    if value != "custom":
+                        raise AssertionError("value is not custom")
+
+            GroupContextManager.utilize_asserts(CustomAsserts)
+
+            with GroupContextManager("Main Group") as MG:
+
+                @MG.add_test("is custom")
+                def test(case):
+                    case.assertCustom("custom")
+
+        Once the functions are parsed into a dictionary, they are each set as
+        attributes of the :class:`.Helper`, using their dictionary keys as
+        their method names, but only if they're would-be names start with
+        "assert".
+        """
+        assert_methods = {}
+        if inspect.isclass(container):
+            c_funcs = inspect.getmembers(
+                container,
+                predicate=inspect.isfunction,
+            )
+            c_meths = inspect.getmembers(
+                container,
+                predicate=inspect.ismethod,
+            )
+            c_meths_funcs = list((n, m.__func__) for n, m in c_meths)
+            assert_methods = {
+                name: method for name, method in set(c_funcs + c_meths_funcs)
+            }
+        elif isinstance(container, list) or isinstance(container, set):
+            assert_methods = {method.__name__: method for method in container}
+        elif isinstance(container, dict):
+            assert_methods = container
+        elif isinstance(container, FunctionType):
+            assert_methods = {container.__name__: container}
+        else:
+            raise TypeError(
+                "Unexpected type. Must be class, list, dict, or function",
+            )
+        for name, method in assert_methods.items():
+            if name.startswith("assert"):
+                setattr(Helper, name, method)
+
+
+GroupContextManager = GcmMaker()
+
+
+class Context(object):
     """A context manager for groups, their fixtures, child groups, and tests.
 
     :param description: The description for the group of the current context.
@@ -145,16 +338,20 @@ class GroupContextManager(object):
     """
 
     _helper = helper
+    _current_manager = None
 
     def __init__(self, description, cascading_failure=True):
         self._group = Group(description, cascading_failure=cascading_failure)
 
     def __enter__(self):
-        """Provide the context manager when entering the context."""
+        """Track and provided the context manager when entering the context."""
+        self._old_manager = self.__class__._current_manager
+        self.__class__._current_manager = self
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        """Handle exiting the context."""
+        """Stop tracking the context manager and handle exiting the context."""
+        self.__class__._current_manager = self._old_manager
         if exc_type is None:
             return True
 
@@ -165,14 +362,14 @@ class GroupContextManager(object):
     def __setattr__(self, attr, value):
         """Defer attribute lookups to helper."""
         if attr in self.__dict__.keys() or attr == "_group":
-            super(GroupContextManager, self).__setattr__(attr, value)
+            super(Context, self).__setattr__(attr, value)
         else:
             setattr(self._helper, attr, value)
 
     def __delattr__(self, attr):
         """Defer attribute lookups to helper."""
         if attr in self.__dict__.keys() or attr == "_group":
-            super(GroupContextManager, self).__delattr__(attr)
+            super(Context, self).__delattr__(attr)
         else:
             delattr(self._helper, attr)
 
@@ -605,17 +802,17 @@ class GroupContextManager(object):
                 setattr(Helper, name, method)
 
     def includes(self, *contexts):
-        """Graft a :class:`.GroupContextManager` group structure here.
+        """Graft a :class:`.Context` group structure here.
 
         :param contexts:
-            The :class:`.GroupContextManager` objects that contain the group
+            The :class:`.Context` objects that contain the group
             structures you want to include in the group of the current context,
             in the order they are listed.
-        :type contexts: :class:`.GroupContextManager`
+        :type contexts: :class:`.Context`
 
-        For each :class:`.GroupContextManager` instance that was passed, take
+        For each :class:`.Context` instance that was passed, take
         the root group of a it, make a deepcopy of it, and append it to this
-        :class:`.GroupContextManager`'s current group's children so that copies
+        :class:`.Context`'s current group's children so that copies
         of all of its tests get run within the context of the current group in
         the order and structure they were originally defined in.
 
@@ -676,24 +873,24 @@ class GroupContextManager(object):
                 value is now 2 ... ok
         """
         for context in contexts:
-            if not isinstance(context, GroupContextManager):
+            if not isinstance(context, Context):
                 raise TypeError(
-                    "method only accepts GroupContextManager objects",
+                    "method only accepts Context objects",
                 )
             group_copy = deepcopy(context._group)
             group_copy._parent = self._group
             self._group._children.append(group_copy)
 
     def combine(self, *contexts):
-        """Use the contents of a :class:`.GroupContextManager`'s root group.
+        """Use the contents of a :class:`.Context`'s root group.
 
         :param contexts:
-            The :class:`.GroupContextManager` objects containing the group
+            The :class:`.Context` objects containing the group
             structures you want to combine with the group of the current
             context.
-        :type contexts: :class:`.GroupContextManager`
+        :type contexts: :class:`.Context`
 
-        For each :class:`.GroupContextManager` instance that was passed, take
+        For each :class:`.Context` instance that was passed, take
         the root group of a it, make a deepcopy of it, and append each of its
         tests, fixtures, and child groups to the respective lists of the group
         of the current context.
@@ -753,9 +950,9 @@ class GroupContextManager(object):
                 value is still 1 ... ok
         """
         for context in contexts:
-            if not isinstance(context, GroupContextManager):
+            if not isinstance(context, Context):
                 raise TypeError(
-                    "method only accepts GroupContextManager objects",
+                    "method only accepts Context objects",
                 )
             group_copy = deepcopy(context._group)
             self._group._setups += group_copy._setups
@@ -787,10 +984,10 @@ class GroupContextManager(object):
         an argument to :meth:`.create_tests` (usually done with
         :func:`.globals`).
 
-        Only :class:`.GroupContextManager` instances that call this method will
-        have their tests run. If a :class:`.GroupContextManager` instance does
+        Only :class:`.Context` instances that call this method will
+        have their tests run. If a :class:`.Context` instance does
         not call this method, it should only be so that its group structure
-        could be included in another :class:`.GroupContextManager`'s structure.
+        could be included in another :class:`.Context`'s structure.
 
         Example::
 
@@ -1280,13 +1477,13 @@ class Group(object):
 
     @property
     def _root_group(self):
-        """The root group of the :class:`.GroupContextManager` instance."""
+        """The root group of the :class:`.Context` instance."""
         return self._ancestry[-1]
 
     def _build_test_cases(self, mod):
         """Build the test cases for this :class:`.Group`.
 
-        The group of the main :class:`.GroupContextManager` represents the root
+        The group of the main :class:`.Context` represents the root
         of a tree. Each group should be considered a branch, capable of having
         leaves or other branches as its children, and each test case should be
         considered aleaf.
@@ -1446,7 +1643,7 @@ class NullGroup(object):
     """Represents the ultimate teardown level.
 
     This class is only used as a :class:`.Case`'s :attr:`._teardown_level` to
-    signal that it is the very last one in the :class:`GroupContextManager`,
+    signal that it is the very last one in the :class:`Context`,
     so all teardowns should be run once it is complete, and the
     :class:`.Helper`'s :attr:`_level_stack` should then be empty.
     """
