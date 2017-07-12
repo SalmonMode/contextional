@@ -129,6 +129,131 @@ with GCM("Context Description of Deep Tests") as CDDT:
 CDDT.create_tests()
 
 
+with GCM("setups") as setups_GCMNS:
+
+    @GCM.add_setup
+    def setUp():
+        GCM.test_value = 0
+
+    @GCM.add_setup
+    def setUp():
+        GCM.test_value += 1
+
+    @GCM.add_test_setup
+    def setUp():
+        GCM.test_value += 2
+
+    @GCM.add_test_setup
+    def setUp():
+        GCM.test_value *= 3
+
+with GCM("teardowns") as teardowns_GCMNS:
+
+    @GCM.add_test_teardown
+    def tearDown():
+        GCM.test_value += 5
+
+    @GCM.add_test_teardown
+    def tearDown():
+        GCM.test_value *= 6
+
+    @GCM.add_teardown
+    def tearDown():
+        GCM.test_value += 7
+
+    @GCM.add_teardown
+    def tearDown():
+        GCM.test_value *= 8
+
+
+with GCM("Root Level Fixture GCM Namespace Tests") as RLFGCMNST:
+
+    GCM.combine(
+        setups_GCMNS,
+        teardowns_GCMNS,
+    )
+
+    @GCM.add_test("value is 9")
+    def test(case):
+        case.assertEqual(
+            GCM.test_value,
+            9,
+        )
+
+    @GCM.add_test("value is 258")
+    def test(case):
+        case.assertEqual(
+            GCM.test_value,
+            258,
+        )
+
+    with GCM.add_group("Only Test Teardowns Should've Happened"):
+
+        @GCM.add_test("value is 1578")
+        def test(case):
+            case.assertEqual(
+                GCM.test_value,
+                1578,
+            )
+
+
+RLFGCMNST.create_tests(globals())
+
+
+with GCM("Root Level Fixture GCM Namespace Tests Part 2") as RLFGCMNST2:
+
+    @GCM.add_test("value is now 12680")
+    def test(case):
+        case.assertEqual(
+            GCM.test_value,
+            12680,
+        )
+
+
+RLFGCMNST2.create_tests(globals())
+
+
+with GCM("This Description Should Show Up") as include1_GCMNS:
+
+    @GCM.add_setup
+    def setUp():
+        GCM.test_value = 0
+
+    @GCM.add_teardown
+    def tearDown():
+        GCM.test_value += 1
+
+    @GCM.add_test("value is 0")
+    def test(case):
+        case.assertEqual(
+            GCM.test_value,
+            0,
+        )
+
+
+with GCM("This Description Should Also Show Up") as include2_GCMNS:
+
+    with GCM.add_group("And So Should This"):
+
+        @GCM.add_test("value is 1")
+        def test(case):
+            case.assertEqual(
+                GCM.test_value,
+                1,
+            )
+
+
+with GCM("Context Description of Deep Tests With GCM Namespace") as CDDTGCMNS:
+
+    GCM.includes(
+        include1_GCMNS,
+        include2_GCMNS,
+    )
+
+
+CDDTGCMNS.create_tests()
+
+
 expected_stream_output = [
     "Root Level Fixture Tests ",
     "  value is 9 ... ok",
@@ -138,6 +263,19 @@ expected_stream_output = [
     "Root Level Fixture Tests Part 2 ",
     "  value is now 12680 ... ok",
     "Context Description of Deep Tests ",
+    "  This Description Should Show Up ",
+    "    value is 0 ... ok",
+    "  This Description Should Also Show Up ",
+    "    And So Should This ",
+    "      value is 1 ... ok",
+    "Root Level Fixture GCM Namespace Tests ",
+    "  value is 9 ... ok",
+    "  value is 258 ... ok",
+    "  Only Test Teardowns Should've Happened ",
+    "    value is 1578 ... ok",
+    "Root Level Fixture GCM Namespace Tests Part 2 ",
+    "  value is now 12680 ... ok",
+    "Context Description of Deep Tests With GCM Namespace ",
     "  This Description Should Show Up ",
     "    value is 0 ... ok",
     "  This Description Should Also Show Up ",

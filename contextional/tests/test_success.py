@@ -23,7 +23,7 @@ class TestSuccessResult(unittest.TestCase):
     def test_tests_run_count(self):
         self.assertEqual(
             self.test_results.testsRun,
-            6,
+            12,
         )
 
     def test_failures_count(self):
