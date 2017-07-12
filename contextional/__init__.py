@@ -2,7 +2,6 @@ from __future__ import absolute_import
 
 from contextional.contextional import GroupContextManager
 
-
 from contextional.__version__ import (
     __title__,
     __description__,
@@ -13,6 +12,9 @@ from contextional.__version__ import (
     __license__,
 )
 
+
+GCM = GroupContextManager
+
 __all__ = [
-    "GroupContextManager",
+    "GCM",
 ]
