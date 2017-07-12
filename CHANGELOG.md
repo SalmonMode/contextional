@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.4.0] - 2017-07-12
 ### Added
 - ``GCM`` is now a built in alias for ``GroupContextManager``.
 
