@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.4.1] - 2017-08-28
 ### Fixed
 - Group description wasn't displaying when running with nose and a parent
 group caused a cascading failure.
@@ -235,7 +237,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.4.0...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.4.1...HEAD
+[1.4.1]: https://github.com/SalmonMode/contextional/compare/1.4.0...1.4.1
 [1.4.0]: https://github.com/SalmonMode/contextional/compare/1.3.1...1.4.0
 [1.3.1]: https://github.com/SalmonMode/contextional/compare/1.3.0...1.3.1
 [1.3.0]: https://github.com/SalmonMode/contextional/compare/1.2.1...1.3.0
