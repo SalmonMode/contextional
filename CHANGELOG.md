@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- Actually fixed group description not displaying when running with nose and a
+parent group caused a cascading failure.
 
 ## [1.4.1] - 2017-08-28
 ### Fixed
