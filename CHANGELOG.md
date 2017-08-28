@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- Fixed tests, so build should pass now.
 
 ## [1.4.2] - 2017-08-28
 ### Fixed
