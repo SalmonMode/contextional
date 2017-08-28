@@ -1283,25 +1283,6 @@ class GroupTestCase(object):
         # attribute of the proxy object
         self.temp_result = ContextionalTestResultProxy(result)
 
-        self._auto_fail = False
-        for group in self._group._ancestry:
-            self._auto_fail = group._cascading_failure_in_progress
-            if self._auto_fail is True:
-                break
-
-        if self._auto_fail:
-            LOGGER.debug(
-                "CASCADING FAILURE - Not setting up group:\n{}".format(
-                    str(self._group),
-                ),
-            )
-
-            for group in self._group._setup_ancestry:
-                if group not in self._helper._level_stack:
-                    self._helper._level_stack.append(group)
-
-            return super(GroupTestCase, self).run(self.temp_result)
-
         LOGGER.debug("Setting up group:\n{}".format(str(self._group)))
         self._teardown_to_common_level()
 
@@ -1310,8 +1291,7 @@ class GroupTestCase(object):
 
         LOGGER.debug("Setups complete.")
 
-        x = super(GroupTestCase, self).run(self.temp_result)
-        return x
+        return super(GroupTestCase, self).run(self.temp_result)
 
     def runTest(self):
         __tracebackhide__ = True
@@ -1540,7 +1520,6 @@ class Group(object):
             # setup for this group has already been attempted
             return
         self._helper._level_stack.append(self)
-
         if result is not None:
             if hasattr(result, "stream"):
                 if result.showAll:
@@ -1555,6 +1534,10 @@ class Group(object):
                     str(self),
                 ),
             )
+            if result is not None:
+                if hasattr(result, "stream"):
+                    if result.showAll:
+                        result.stream.writeln()
             return
         LOGGER.debug("Running setUps for group:\n{}".format(str(self)))
         try:
