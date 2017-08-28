@@ -1541,6 +1541,11 @@ class Group(object):
             return
         self._helper._level_stack.append(self)
 
+        if result is not None:
+            if hasattr(result, "stream"):
+                if result.showAll:
+                    result.stream.write(self._inline_description + " ")
+
         self._cascading_failure_in_progress = any(
             group._cascading_failure_in_progress for group in self._ancestry,
         )
@@ -1552,10 +1557,6 @@ class Group(object):
             )
             return
         LOGGER.debug("Running setUps for group:\n{}".format(str(self)))
-        if result is not None:
-            if hasattr(result, "stream"):
-                if result.showAll:
-                    result.stream.write(self._inline_description + " ")
         try:
             for i, setup in enumerate(self._setups):
                 LOGGER.debug("Running setUp #{}".format(i))
