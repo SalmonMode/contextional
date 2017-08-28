@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.4.3] - 2017-08-28
 ### Fixed
 - Fixed tests, so build should pass now.
 
@@ -244,7 +246,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.4.2...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.4.3...HEAD
+[1.4.3]: https://github.com/SalmonMode/contextional/compare/1.4.2...1.4.3
 [1.4.2]: https://github.com/SalmonMode/contextional/compare/1.4.1...1.4.2
 [1.4.1]: https://github.com/SalmonMode/contextional/compare/1.4.0...1.4.1
 [1.4.0]: https://github.com/SalmonMode/contextional/compare/1.3.1...1.4.0
