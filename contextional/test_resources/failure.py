@@ -237,6 +237,7 @@ expected_stream_output = [
     "  value is 1 ... ok",
     "  Cascading Failure Should Only Affect This Group ERROR",
     "    fails if cacading failure ... FAIL",
+    "    Cascading Failure Should Extend to This Group ",
     "      fails if cacading failure ... FAIL",
     "Cascading Failure Part 3 ",
     "  will pass ... ok",
