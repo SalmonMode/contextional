@@ -1039,6 +1039,8 @@ class GroupTestCase(object):
     """
 
     _helper = helper
+    _case = None
+    _dry_run = False
     _root_group_hash = None
     _description = ""
     _full_description = ""
@@ -1088,7 +1090,13 @@ class GroupTestCase(object):
                 Group C
                     test #2
         """
-        if self._case._test_started:
+        if self.__class__._case is None:
+            # this must be a dry run.
+            self.__class__._dry_run = True
+            self.__class__._case = self._helper._get_next_test()
+        if self._dry_run:
+            return self._case._dry_run_description
+        elif self._case._test_started:
             return self._case._full_description
         else:
             return self._case._inline_description
@@ -1322,6 +1330,7 @@ class Group(object):
     """A group of tests, with common fixtures and description."""
 
     _helper = helper
+    _pytest_dry_run = False
 
     def __init__(self, description, cascading_failure=True, args=(),
                  parent=None):
@@ -1341,6 +1350,9 @@ class Group(object):
         self._last_test_case = None
 
     def __str__(self):
+        if self._pytest_dry_run:
+            # pytest handles indentation in dry runs already.
+            return self._description
         return self._get_full_ancestry_description(indented=True)
 
     @property
@@ -1646,6 +1658,8 @@ class Case(object):
 
     _helper = helper
     _exc_info = None
+    _dry_run_description_cache = None
+    _pytest_dry_run = False
 
     def __init__(self, group, func, description):
         self._group = group
@@ -1667,6 +1681,12 @@ class Case(object):
         else:
             self._func()
 
+    def __str__(self):
+        if self._pytest_dry_run:
+            # pytest handles indentation in dry runs already.
+            return self._description
+        return self._full_description
+
     @property
     def _inline_description(self):
         return "  " * (self._group._level + 1) + self._description
@@ -1679,6 +1699,35 @@ class Case(object):
             self._description,
         )
         return desc
+
+    @property
+    def _dry_run_description(self):
+        if self._dry_run_description_cache is None:
+            desc_list = []
+            for group in self._group._setup_ancestry:
+                if group not in self._helper._level_stack:
+                    self._helper._level_stack.append(group)
+                    desc_list.append(group._inline_description)
+            desc_list.append(self._inline_description)
+            self._dry_run_description_cache = "\n".join(desc_list)
+            # clean up level stack
+            if self._teardown_level is None:
+                return self._dry_run_description_cache
+            if self._teardown_level is NullGroup:
+                stop_index = None
+            else:
+                try:
+                    stop_index = self._helper._level_stack.index(
+                        self._teardown_level,
+                    )
+                except IndexError:
+                    raise IndexError(
+                        "Cannot teardown to desired level from current stack.",
+                    )
+            teardown_groups = self._helper._level_stack[:stop_index:-1]
+            for group in teardown_groups:
+                self._helper._level_stack.remove(group)
+        return self._dry_run_description_cache
 
     def __getattr__(self, attr):
         """Defer attribute lookups to helper."""

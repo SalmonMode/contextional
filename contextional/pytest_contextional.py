@@ -49,10 +49,37 @@ def pytest_runtest_protocol(item, nextitem):
     return True
 
 
+class FakeItem(object):
+
+    _case = None
+
+    def __init__(self, item):
+        self._item = item
+
+    def listchain(self):
+        # grab the session and module from the actual listchain.
+        chain_start = self._item.listchain()[:2]
+        if self._item.cls._case is None:
+            self._item.cls._case = self._item.cls._helper._get_next_test()
+        if self._case is None:
+            self._case = self._item.cls._case
+        new_chain = []
+        for group in self._case._group._setup_ancestry:
+            group._pytest_dry_run = True
+            new_chain.append(group)
+        self._case._pytest_dry_run = True
+        new_chain.append(self._case)
+        full_listchain = chain_start + new_chain
+        return full_listchain
+
+
 def pytest_collection_modifyitems(session, config, items):
     for item in items:
         if issubclass(item.cls, GroupTestCase):
             item.cls._is_pytest = True
+            if config.option.collectonly:
+                item.cls._dry_run = True
+                items[items.index(item)] = FakeItem(item)
 
 
 def handle_teardowns(item):
