@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.5.0] - 2017-09-05
 ### Added
 - Dry/collect-only runs are now supported in both ``nose`` and ``pytest``.
 
@@ -248,7 +250,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.4.3...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.5.0...HEAD
+[1.5.0]: https://github.com/SalmonMode/contextional/compare/1.4.3...1.5.0
 [1.4.3]: https://github.com/SalmonMode/contextional/compare/1.4.2...1.4.3
 [1.4.2]: https://github.com/SalmonMode/contextional/compare/1.4.1...1.4.2
 [1.4.1]: https://github.com/SalmonMode/contextional/compare/1.4.0...1.4.1
