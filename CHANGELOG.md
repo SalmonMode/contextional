@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Dry/collect-only runs are now supported in both ``nose`` and ``pytest``.
 
 ## [1.4.3] - 2017-08-28
 ### Fixed
