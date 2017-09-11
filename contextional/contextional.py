@@ -381,7 +381,9 @@ class Context(object):
 
         This decorator takes an optional argument for the description of the
         test case. If not provided, the docstring of the function will be used
-        as the test case's description.
+        as the test case's description. If no description argument is provided,
+        and the function has no docstring, then the name of the function will
+        be used.
 
         Example::
 
@@ -399,7 +401,8 @@ class Context(object):
         """
 
         if isinstance(func, FunctionType):
-            desc = func.__doc__
+            # use the function's __name__ if it has no docstring.
+            desc = func.__doc__ or func.__name__
         else:
             desc = func
 
