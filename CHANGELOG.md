@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- When adding a test, if no description argument is provided, and the test
+function has no docstring, the test function's ``__name__`` will be used
+instead.
 
 ## [1.5.0] - 2017-09-05
 ### Added
