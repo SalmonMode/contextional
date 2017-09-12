@@ -1649,12 +1649,11 @@ class Group(object):
                 self._cascading_failure_in_progress = True
                 self._cascading_failure_root = True
             if self._result is not None and self._pytest_writer is None:
-                repr = GroupRepr(self)
                 if hasattr(self._result, "_result"):
                     if hasattr(self._result._result, "test"):
                         old_result_test = self._result._result.test
-                        self._result._result.test = repr
-                self._result.addError(repr, sys.exc_info())
+                        self._result._result.test = setup
+                self._result.addError(setup, sys.exc_info())
                 if hasattr(self._result, "_result"):
                     if hasattr(self._result._result, "test"):
                         self._result._result.test = old_result_test
@@ -1706,12 +1705,11 @@ class Group(object):
                     # failed.
                     self._write(teardown._inline_description + " ")
                 if self._result is not None and self._pytest_writer is None:
-                    repr = GroupRepr(self)
                     if hasattr(self._result, "_result"):
                         if hasattr(self._result._result, "test"):
                             old_result_test = self._result._result.test
-                            self._result._result.test = repr
-                    self._result.addError(repr, sys.exc_info())
+                            self._result._result.test = teardown
+                    self._result.addError(teardown, sys.exc_info())
                     if hasattr(self._result, "_result"):
                         if hasattr(self._result._result, "test"):
                             self._result._result.test = old_result_test
