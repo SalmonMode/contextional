@@ -129,7 +129,7 @@ def handle_teardowns(item):
                         excinfo = ExceptionInfo()
                         stop_time = time()
                         nodeid = item.nodeid.split("::")[0] + "::"
-                        nodeid += group._inline_description + " "
+                        nodeid += group._inline_description
                         location = group._last_location
                         keywords = {}
                         outcome = "failed"
@@ -203,7 +203,7 @@ class ContextionalTerminalReporter(TerminalReporter):
                     excinfo = ExceptionInfo()
                     stop_time = time()
                     nodeid = nodeid.split("::")[0] + "::"
-                    nodeid += group._inline_description + " "
+                    nodeid += group._inline_description
                     location = group._last_location
                     keywords = {}
                     outcome = "failed"
