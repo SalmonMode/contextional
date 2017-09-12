@@ -1608,7 +1608,7 @@ class Group(object):
                     self._write_to_result = True
 
         self._helper._level_stack.append(self)
-        self._write(self._inline_description + " ")
+        self._write(self._inline_description)
 
         self._cascading_failure_in_progress = any(
             group._cascading_failure_in_progress for group in self._ancestry,
@@ -1627,6 +1627,8 @@ class Group(object):
                 LOGGER.debug("Running setUp #{}".format(i))
                 self._last_location = setup
                 if setup._description is not None:
+                    # should be preceded by a new line, because nothing else
+                    # triggers a new line.
                     self._writeln()
                     self._write(setup._inline_description + " ")
                 if isinstance(self._args, Mapping):
@@ -1690,16 +1692,18 @@ class Group(object):
                     LOGGER.debug("Running tearDown #{}".format(i))
                     self._last_location = teardown
                     if teardown._description is not None:
-                        self._writeln()
                         self._write(teardown._inline_description + " ")
                     teardown()
+                    if teardown._description is not None:
+                        # new line is only needed if teardown has a description
+                        # and no error was thrown.
+                        self._writeln()
                 LOGGER.debug("tearDown #{} complete.".format(i))
             except:
                 LOGGER.debug("Group teardown failed.", exc_info=True)
                 if teardown._description is None:
                     # make sure the teardown has something displayed if it
                     # failed.
-                    self._writeln()
                     self._write(teardown._inline_description + " ")
                 if self._result is not None and self._pytest_writer is None:
                     repr = GroupRepr(self)
