@@ -301,6 +301,94 @@ Also, if the fixtures are test-level fixtures (i.e. test setups and test
 teardowns), then they will definitely not be used if there aren't any tests
 defined in the same layer.
 
+Then can I at least have multiple fixtures of a given type in a single layer?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Yes, and this is actually recommended. It's good to break up the various steps
+of your setups/teardowns into individual functions as it compartmentalizes your
+code in the event that you want to make a change or have an error.
+
+Can I have each of those fixtures spit out what they're doing while they do it?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You sure can.
+
+Just like tests can be given a description, setups and teardowns can also be
+given a description that will be printed out as each one is run; and if it
+throws an error, you'll see that description in the error report.
+
+Here's an example of how to give a fixture a description::
+
+    from contextional import GCM
+
+
+    with GCM("Main Group") as MG:
+
+        @GCM.add_setup("do a thing")
+        def setUp():
+            GCM.value = 1
+
+        @GCM.add_teardown("undo all the things")
+        def setUp():
+            del GCM.value
+
+        with GCM.add_group("Child Group"):
+
+            @GCM.add_setup("do another thing")
+            def setUp():
+                GCM.value += 1
+
+            @GCM.add_teardown("undo that last thing")
+            def setUp():
+                GCM.value -= 1
+
+            @GCM.add_test("value is 2")
+            def test(case):
+                case.assertEqual(GCM.value, 2)
+
+
+    MG.create_tests()
+
+
+and that would output this:
+
+.. code-block:: none
+
+    Main Group
+      # do a thing
+      Child Group
+        # do another thing
+        value is 2 ... ok
+        # undo that last thing
+      # undo all the things
+
+Do I have to give a description to every setup and teardown?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Nope.
+
+Not everything needs a description, so if you don't give a fixture a
+description, it just won't show up in the test output.
+
+However, if a fixture throws an error, a generic description of the fixture
+will be spat out to show where the error occured specifically. It would look
+something like this:
+
+.. code-block:: none
+
+    Main Group
+      Child Group
+        # setup (2/5) ERROR
+        some test ... FAIL
+      # teardown (1/1) ERROR
+
+And you would see something similar in the error report.
+
+The two numbers are 1) the 1-indexed position of the fixture and 2) the total
+number of fixtures of that type in that layer. So if you see ``# setup (2/5)
+ERROR``, that means there were 5 setups total in that group, and the 2nd one
+threw an error.
+
 How do I predefine a :class:`.Context` that I can use elsewhere?
 ----------------------------------------------------------------------------
 
