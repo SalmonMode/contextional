@@ -541,10 +541,8 @@ class Context(object):
     def add_setup(self, func):
         """Add the decorated function to the current context as a setup.
 
-        :param func:
-            A function to be used for a setup of the group for the current
-            context
-        :type func: function
+        :param func: The setup description or the setup function itself
+        :type func: str or function
 
         This setup will only be run once, and it will be run by the first test
         case within the group. If the current group has no test cases, then the
@@ -557,6 +555,12 @@ class Context(object):
         that's the only opportunity to run code), it might be easiest to
         imagine that the setups for a group get run only as you step in to that
         group from its parent.
+
+        If a description for the setup is provided, it will be shown when it is
+        run, at the same indentation as the tests of the group. If no
+        description is provided, the setup will not be shown unless it throws
+        an error. If it has no description, and it throws an error, you'll see
+        something along the lines of ``# setup (2/5) ERROR``.
 
         Example::
 
@@ -579,7 +583,19 @@ class Context(object):
             will no longer exist in the global namespace of the module it was
             declared in once the decorator is evaluated.
         """
-        self._group._setups.append(func)
+        if isinstance(func, FunctionType):
+            desc = func.__doc__
+        else:
+            desc = func
+
+        def decorator(f):
+            fixture = SetUpFixture(self._group, f, desc)
+            self._group._setups.append(fixture)
+
+        if isinstance(func, FunctionType):
+            decorator(func)
+        else:
+            return decorator
 
     def add_test_setup(self, func):
         """Add the decorated function to the current context as a test setup.
@@ -642,6 +658,12 @@ class Context(object):
         imagine that the teardowns for a group get run only as you step out of
         that group, back up to its parent group.
 
+        If a description for the teardown is provided, it will be shown when it
+        is run, at the same indentation as the tests of the group. If no
+        description is provided, the teardown will not be shown unless it
+        throws an error. If it has no description, and it throws an error,
+        you'll see something along the lines of ``# teardown (2/5) ERROR``.
+
         Example::
 
             with GCM("Main Group") as MG:
@@ -650,13 +672,17 @@ class Context(object):
                 def setUp():
                     GCM.thing = 0
 
+                @GCM.add_teardown("deleting thing")
+                def tearDown():
+                    del GCM.thing
+
                 with GCM.add_group("Child A"):
 
-                    @GCM.add_setup
+                    @GCM.add_setup("incrementing by 2")
                     def setUp():
                         GCM.thing += 2
 
-                    @GCM.add_teardown
+                    @GCM.add_teardown("decrementing by 1")
                     def tearDown():
                         GCM.thing -= 1
 
@@ -676,13 +702,38 @@ class Context(object):
                             1,
                         )
 
+        Output:
+
+        .. code-block:: none
+
+            Main Group
+              Child A
+                # incrementing by 2
+                thing is 2 ... ok
+                # decrementing by 1
+              Child B
+                thing is now 1 ... ok
+              # deleting thing
+
         .. note::
             To avoid any extra functions running by accident, this decorator
             will NOT return any replacement function. The decorated function
             will no longer exist in the global namespace of the module it was
             declared in once the decorator is evaluated.
         """
-        self._group._teardowns.append(func)
+        if isinstance(func, FunctionType):
+            desc = func.__doc__
+        else:
+            desc = func
+
+        def decorator(f):
+            fixture = TearDownFixture(self._group, f, desc)
+            self._group._teardowns.append(fixture)
+
+        if isinstance(func, FunctionType):
+            decorator(func)
+        else:
+            return decorator
 
     def add_test_teardown(self, func):
         """Add the decorated function to the current group as a test teardown.
@@ -1276,7 +1327,7 @@ class GroupTestCase(object):
                 )
         teardown_groups = self._helper._level_stack[:stop_index:-1]
         for group in teardown_groups:
-            group._teardown_group(result=self.temp_result)
+            group._teardown_group()
         LOGGER.debug("Teardowns complete.")
 
     def _teardown_to_common_level(self):
@@ -1298,7 +1349,8 @@ class GroupTestCase(object):
         self._teardown_to_common_level()
 
         for group in self._group._setup_ancestry:
-            group._setup_group(result=self.temp_result)
+            group._result = self.temp_result
+            group._setup_group()
 
         LOGGER.debug("Setups complete.")
 
@@ -1351,6 +1403,9 @@ class Group(object):
         self._children = []
         self._teardown_level = self
         self._last_test_case = None
+        self._last_location = self
+        self._result = None
+        self._pytest_writer = None
 
     def __str__(self):
         if self._pytest_dry_run:
@@ -1523,7 +1578,17 @@ class Group(object):
         self._children.append(child)
         return child
 
-    def _setup_group(self, result=None):
+    def _write(self, text):
+        if self._write_to_result:
+            self._result.stream.write(text)
+        elif self._pytest_writer is not None:
+            self._pytest_writer.write_ensure_prefix(text, "")
+
+    def _writeln(self):
+        if self._write_to_result:
+            self._result.stream.writeln()
+
+    def _setup_group(self):
         """Setup the :class:`Group`.
 
         Check if any ancestor :class:`Group`s caused a cascading failure. If
@@ -1531,14 +1596,19 @@ class Group(object):
 
         """
         __tracebackhide__ = True
+
         if self in self._helper._level_stack:
             # setup for this group has already been attempted
             return
+
+        self._write_to_result = False
+        if self._result is not None:
+            if hasattr(self._result, "stream"):
+                if self._result.showAll:
+                    self._write_to_result = True
+
         self._helper._level_stack.append(self)
-        if result is not None:
-            if hasattr(result, "stream"):
-                if result.showAll:
-                    result.stream.write(self._inline_description + " ")
+        self._write(self._inline_description + " ")
 
         self._cascading_failure_in_progress = any(
             group._cascading_failure_in_progress for group in self._ancestry,
@@ -1549,15 +1619,16 @@ class Group(object):
                     str(self),
                 ),
             )
-            if result is not None:
-                if hasattr(result, "stream"):
-                    if result.showAll:
-                        result.stream.writeln()
+            self._writeln()
             return
         LOGGER.debug("Running setUps for group:\n{}".format(str(self)))
         try:
             for i, setup in enumerate(self._setups):
                 LOGGER.debug("Running setUp #{}".format(i))
+                self._last_location = setup
+                if setup._description is not None:
+                    self._writeln()
+                    self._write(setup._inline_description + " ")
                 if isinstance(self._args, Mapping):
                     setup(**self._args)
                 else:
@@ -1565,30 +1636,33 @@ class Group(object):
                 LOGGER.debug("setUp #{} complete.".format(i))
         except:
             LOGGER.debug("Group setup failed.", exc_info=True)
+
+            if setup._description is None:
+                # make sure the setup has something displayed if it failed.
+                self._writeln()
+                self._write(setup._inline_description + " ")
+
             if self._cascading_failure:
                 LOGGER.debug("Triggering cascading failure.")
                 self._cascading_failure_in_progress = True
                 self._cascading_failure_root = True
-            if result is not None:
+            if self._result is not None and self._pytest_writer is None:
                 repr = GroupRepr(self)
-                if hasattr(result, "_result"):
-                    if hasattr(result._result, "test"):
-                        old_result_test = result._result.test
-                        result._result.test = repr
-                result.addError(repr, sys.exc_info())
-                if hasattr(result, "_result"):
-                    if hasattr(result._result, "test"):
-                        result._result.test = old_result_test
+                if hasattr(self._result, "_result"):
+                    if hasattr(self._result._result, "test"):
+                        old_result_test = self._result._result.test
+                        self._result._result.test = repr
+                self._result.addError(repr, sys.exc_info())
+                if hasattr(self._result, "_result"):
+                    if hasattr(self._result._result, "test"):
+                        self._result._result.test = old_result_test
             else:
                 raise
         else:
-            if result is not None:
-                if hasattr(result, "stream"):
-                    if result.showAll:
-                        result.stream.writeln()
+            self._writeln()
         LOGGER.debug("Done setting up group.")
 
-    def _teardown_group(self, result=None):
+    def _teardown_group(self):
         """Teardown the :class:`Group`.
 
         Check if there's currently a cascading failure. If so, find what level
@@ -1614,23 +1688,29 @@ class Group(object):
             try:
                 for i, teardown in enumerate(self._teardowns):
                     LOGGER.debug("Running tearDown #{}".format(i))
+                    self._last_location = teardown
+                    if teardown._description is not None:
+                        self._writeln()
+                        self._write(teardown._inline_description + " ")
                     teardown()
                 LOGGER.debug("tearDown #{} complete.".format(i))
             except:
                 LOGGER.debug("Group teardown failed.", exc_info=True)
-                if result is not None:
-                    if hasattr(result, "stream"):
-                        if result.showAll:
-                            result.stream.write(self._inline_description + " ")
+                if teardown._description is None:
+                    # make sure the teardown has something displayed if it
+                    # failed.
+                    self._writeln()
+                    self._write(teardown._inline_description + " ")
+                if self._result is not None and self._pytest_writer is None:
                     repr = GroupRepr(self)
-                    if hasattr(result, "_result"):
-                        if hasattr(result._result, "test"):
-                            old_result_test = result._result.test
-                            result._result.test = repr
-                    result.addError(repr, sys.exc_info())
-                    if hasattr(result, "_result"):
-                        if hasattr(result._result, "test"):
-                            result._result.test = old_result_test
+                    if hasattr(self._result, "_result"):
+                        if hasattr(self._result._result, "test"):
+                            old_result_test = self._result._result.test
+                            self._result._result.test = repr
+                    self._result.addError(repr, sys.exc_info())
+                    if hasattr(self._result, "_result"):
+                        if hasattr(self._result._result, "test"):
+                            self._result._result.test = old_result_test
                 else:
                     self._helper._level_stack.remove(self)
                     raise
@@ -1735,6 +1815,126 @@ class Case(object):
     def __getattr__(self, attr):
         """Defer attribute lookups to helper."""
         return getattr(self._helper, attr)
+
+
+class Fixture(object):
+    """Information about the fixture.
+
+    This includes the :class:`Group` that this fixture belongs to, the
+    fixture's description (if applicable), and the actual function that
+    performs the steps needed for the fixture.
+
+    If a description is provided, it will be written on its own line as the
+    fixture is called. If not provided, nothing will be shown, unless the
+    fixture throws an error.
+    """
+
+    _helper = helper
+    _exc_info = None
+    _dry_run_description_cache = None
+    _pytest_dry_run = False
+
+    def __init__(self, group, func, description=None):
+        self._group = group
+        self._func = func
+        self._description = description
+
+    def __call__(self, *args, **kwargs):
+        """Performs the actual test."""
+        __tracebackhide__ = True
+        self._func(*args, **kwargs)
+
+    def __str__(self):
+        if self._pytest_dry_run:
+            # pytest handles indentation in dry runs already.
+            return self._description
+        return self._full_description
+
+    @property
+    def _parent_collection(self):
+        """List of fixtures of this type belonging to the parent group."""
+        collection_name = "_" + self._fixture_type.lower() + "s"
+        return getattr(self._group, collection_name)
+
+    @property
+    def _position(self):
+        """Fixture index in the parent collection, starting at 1 (not 0)."""
+        return self._parent_collection.index(self)
+
+    @property
+    def _position_str(self):
+        """String representation of the fixture's position."""
+        length = len(self._parent_collection)
+        return "(" + str(self._position + 1) + "/" + str(length) + ")"
+
+    @property
+    def description(self):
+        """Description of the fixture."""
+        if self._description is None:
+            return self._fixture_type + " " + self._position_str
+        else:
+            return self._description
+
+    @property
+    def _root_group(self):
+        """The root group of the :class:`.Context` instance."""
+        return self._group._root_group
+
+    @property
+    def _inline_description(self):
+        return "  " * (self._group._level + 1) + "# " + self.description
+
+    @property
+    def _full_description(self):
+        full_desc = "\n{}\n{}# {}".format(
+            str(self._group),
+            ("  " * (self._group._level + 2)),
+            self.description,
+        )
+        return full_desc
+
+    @property
+    def _dry_run_description(self):
+        if self._dry_run_description_cache is None:
+            desc_list = []
+            for group in self._group._setup_ancestry:
+                if group not in self._helper._level_stack:
+                    self._helper._level_stack.append(group)
+                    desc_list.append(group._inline_description)
+            desc_list.append(self._inline_description)
+            self._dry_run_description_cache = "\n".join(desc_list)
+            # clean up level stack
+            if self._teardown_level is None:
+                return self._dry_run_description_cache
+            if self._teardown_level is NullGroup:
+                stop_index = None
+            else:
+                try:
+                    stop_index = self._helper._level_stack.index(
+                        self._teardown_level,
+                    )
+                except IndexError:
+                    raise IndexError(
+                        "Cannot teardown to desired level from current stack.",
+                    )
+            teardown_groups = self._helper._level_stack[:stop_index:-1]
+            for group in teardown_groups:
+                self._helper._level_stack.remove(group)
+        return self._dry_run_description_cache
+
+    def __getattr__(self, attr):
+        """Defer attribute lookups to helper."""
+        return getattr(self._helper, attr)
+
+
+class SetUpFixture(Fixture):
+
+    _fixture_type = "setup"
+
+
+class TearDownFixture(Fixture):
+
+    _fixture_type = "teardown"
 
 
 class GroupRepr(object):

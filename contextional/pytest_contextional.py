@@ -7,6 +7,7 @@ from contextional.contextional import (
     get_next_test_from_helper,
     NullGroup,
     Group,
+    Fixture,
     Case,
     CascadingFailureError,
     LOGGER,
@@ -129,7 +130,7 @@ def handle_teardowns(item):
                         stop_time = time()
                         nodeid = item.nodeid.split("::")[0] + "::"
                         nodeid += group._inline_description + " "
-                        location = group
+                        location = group._last_location
                         keywords = {}
                         outcome = "failed"
                         longrepr = excinfo.getrepr()
@@ -140,7 +141,7 @@ def handle_teardowns(item):
                             "Context:",
                             "",
                         ]
-                        context_lines += str(group).split("\n")
+                        context_lines += str(location).split("\n")
                         context_lines[-1] = ">" + context_lines[-1][1:]
                         entry = ReprEntry(
                             context_lines,
@@ -193,8 +194,7 @@ class ContextionalTerminalReporter(TerminalReporter):
         for group in location._group._setup_ancestry:
             if group not in group._helper._level_stack:
                 if self.showlongtestinfo:
-                    line = group._inline_description + " "
-                    self.write_ensure_prefix(line, "")
+                    group._pytest_writer = self
                 start_time = time()
                 try:
                     group._setup_group()
@@ -204,7 +204,7 @@ class ContextionalTerminalReporter(TerminalReporter):
                     stop_time = time()
                     nodeid = nodeid.split("::")[0] + "::"
                     nodeid += group._inline_description + " "
-                    location = group
+                    location = group._last_location
                     keywords = {}
                     outcome = "failed"
                     longrepr = excinfo.getrepr()
@@ -215,7 +215,7 @@ class ContextionalTerminalReporter(TerminalReporter):
                         "Context:",
                         "",
                     ]
-                    context_lines += str(group).split("\n")
+                    context_lines += str(location).split("\n")
                     context_lines[-1] = ">" + context_lines[-1][1:]
                     entry = ReprEntry(context_lines, None, None, None, "long")
                     if hasattr(longrepr, "chain"):
@@ -260,7 +260,7 @@ class ContextionalTerminalReporter(TerminalReporter):
                     markup = {"red": True}
                 elif rep.skipped:
                     markup = {"yellow": True}
-            if isinstance(rep.location, (Group, Case)):
+            if isinstance(rep.location, (Group, Fixture, Case)):
                 line = rep.location._inline_description + " "
                 self.write_ensure_prefix(line, word, **markup)
             else:
@@ -307,7 +307,7 @@ class ContextionalTerminalReporter(TerminalReporter):
             for rep in self.stats["error"]:
                 if isinstance(rep.location, Case):
                     msg = rep.location._group._root_group._description
-                elif isinstance(rep.location, Group):
+                elif isinstance(rep.location, (Group, Fixture)):
                     msg = rep.location._root_group._description
                 else:
                     msg = self._getfailureheadline(rep)
@@ -315,15 +315,21 @@ class ContextionalTerminalReporter(TerminalReporter):
                     # collect
                     msg = "ERROR collecting " + msg
                 elif rep.when == "setup":
-                    if isinstance(rep.location, Group):
+                    if isinstance(rep.location, (Group, Fixture)):
                         msg = "ERROR at setup of "
-                        msg += rep.location._description
+                        if isinstance(rep.location, Group):
+                            msg += rep.location._description
+                        else:
+                            msg += rep.location._group._description
                     else:
                         msg = "ERROR at setup of " + msg
                 elif rep.when == "teardown":
-                    if isinstance(rep.location, Group):
+                    if isinstance(rep.location, (Group, Fixture)):
                         msg = "ERROR at teardown of "
-                        msg += rep.location._description
+                        if isinstance(rep.location, Group):
+                            msg += rep.location._description
+                        else:
+                            msg += rep.location._group._description
                     else:
                         msg = "ERROR at teardown of " + msg
                 self.write_sep("_", msg)
