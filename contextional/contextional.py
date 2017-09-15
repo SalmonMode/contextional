@@ -1227,7 +1227,8 @@ class GroupTestCase(object):
         also to run the actual test.
         """
         __tracebackhide__ = True
-        cls._case = cls._helper._get_next_test()
+        if cls._case is None:
+            cls._case = cls._helper._get_next_test()
         cls._group = cls._case._group
 
     def setUp(self):
@@ -1338,6 +1339,16 @@ class GroupTestCase(object):
             ),
         )
 
+    def _dry_run_setup(self, result=None):
+        if self._case is None:
+            self.__class__._case = self._helper._get_next_test()
+            self.__class__._group = self._case._group
+        self.temp_result = ContextionalTestResultProxy(result)
+        for group in self._group._setup_ancestry:
+            group._result = self.temp_result
+            group._dry_run = True
+            group._setup_group()
+
     def run(self, result=None):
         __tracebackhide__ = True
         self._currentResult = result
@@ -1355,6 +1366,30 @@ class GroupTestCase(object):
         LOGGER.debug("Setups complete.")
 
         return super(GroupTestCase, self).run(self.temp_result)
+
+    def _dry_run_teardown(self):
+        # clean up level stack
+        case = self._case
+
+        if case._teardown_level is not None:
+            if case._teardown_level is NullGroup:
+                stop_index = None
+            else:
+                try:
+                    stop_index = case._helper._level_stack.index(
+                        case._teardown_level,
+                    )
+                except IndexError:
+                    raise IndexError(
+                        (
+                            "Cannot teardown to desired level from "
+                            "current stack."
+                        ),
+                    )
+            teardown_groups = case._helper._level_stack[:stop_index:-1]
+            for group in teardown_groups:
+                group._dry_run = True
+                group._teardown_group()
 
     def runTest(self):
         __tracebackhide__ = True
@@ -1406,6 +1441,7 @@ class Group(object):
         self._last_location = self
         self._result = None
         self._pytest_writer = None
+        self._dry_run = False
 
     def __str__(self):
         if self._pytest_dry_run:
@@ -1631,10 +1667,11 @@ class Group(object):
                     # triggers a new line.
                     self._writeln()
                     self._write(setup._inline_description + " ")
-                if isinstance(self._args, Mapping):
-                    setup(**self._args)
-                else:
-                    setup(*self._args)
+                if not self._dry_run:
+                    if isinstance(self._args, Mapping):
+                        setup(**self._args)
+                    else:
+                        setup(*self._args)
                 LOGGER.debug("setUp #{} complete.".format(i))
         except:
             LOGGER.debug("Group setup failed.", exc_info=True)
@@ -1692,7 +1729,8 @@ class Group(object):
                     self._last_location = teardown
                     if teardown._description is not None:
                         self._write(teardown._inline_description + " ")
-                    teardown()
+                    if not self._dry_run:
+                        teardown()
                     if teardown._description is not None:
                         # new line is only needed if teardown has a description
                         # and no error was thrown.
@@ -1793,25 +1831,11 @@ class Case(object):
                 if group not in self._helper._level_stack:
                     self._helper._level_stack.append(group)
                     desc_list.append(group._inline_description)
+                    for setup in group._setups:
+                        if setup._description is not None:
+                            desc_list.append(setup._inline_description)
             desc_list.append(self._inline_description)
             self._dry_run_description_cache = "\n".join(desc_list)
-            # clean up level stack
-            if self._teardown_level is None:
-                return self._dry_run_description_cache
-            if self._teardown_level is NullGroup:
-                stop_index = None
-            else:
-                try:
-                    stop_index = self._helper._level_stack.index(
-                        self._teardown_level,
-                    )
-                except IndexError:
-                    raise IndexError(
-                        "Cannot teardown to desired level from current stack.",
-                    )
-            teardown_groups = self._helper._level_stack[:stop_index:-1]
-            for group in teardown_groups:
-                self._helper._level_stack.remove(group)
         return self._dry_run_description_cache
 
     def __getattr__(self, attr):

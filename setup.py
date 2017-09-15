@@ -50,5 +50,10 @@ setup(
     install_requires=[
         "pytest",
     ],
-    test_suite="contextional.tests"
+    test_suite="contextional.tests",
+    entry_points={
+        "nose.plugins.0.10": [
+            "contextional-nose-dry-run = contextional.nose_plugin:NoseDryRun",
+            ],
+        },
 )
