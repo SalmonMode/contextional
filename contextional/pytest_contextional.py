@@ -87,85 +87,54 @@ def handle_teardowns(item):
     __tracebackhide__ = True
     case = item._location
 
-    td_lvl = case._teardown_level
-    if td_lvl is not None:
-        if td_lvl is NullGroup:
-            stop_index = None
-        else:
-            stop_index = case._helper._level_stack.index(td_lvl)
-        teardown_groups = case._helper._level_stack[:stop_index:-1]
-        if case._group._cascading_failure_in_progress:
-            ignored_teardown_groups = list(teardown_groups)
-            for group in ignored_teardown_groups:
-                if not group._cascading_failure_root:
-                    LOGGER.debug(
-                        "CASCADING FAILURE - Not tearing down group:\n{}"
-                        .format(
-                            group._get_full_ancestry_description(True),
-                        ),
-                    )
-                    teardown_groups.remove(group)
-                    case._helper._level_stack.remove(group)
+    teardown_groups = case._teardown_groups
+    for group in teardown_groups:
+        if group in case._helper._level_stack:
+            start_time = time()
+            try:
+                group._teardown_group()
+            except:
+                # handle error during group setup
+                excinfo = ExceptionInfo()
+                stop_time = time()
+                nodeid = item.nodeid.split("::")[0] + "::"
+                nodeid += group._inline_description
+                location = group._last_location
+                keywords = {}
+                outcome = "failed"
+                longrepr = excinfo.getrepr()
+                when = "teardown"
+                sections = []
+                duration = stop_time - start_time
+                context_lines = [
+                    "Context:",
+                    "",
+                ]
+                context_lines += str(location).split("\n")
+                context_lines[-1] = ">" + context_lines[-1][1:]
+                entry = ReprEntry(
+                    context_lines,
+                    None,
+                    None,
+                    None,
+                    "long",
+                )
+                if hasattr(longrepr, "chain"):
+                    reprtraceback = longrepr.chain[0][0]
                 else:
-                    break
-        if teardown_groups:
-            if td_lvl is NullGroup:
-                end_desc = "  (Null)"
-            else:
-                end_desc = td_lvl._get_full_ancestry_description(True)
-            LOGGER.debug(
-                "Tearing down group:\n{}\nto:\n{}".format(
-                    case._group._get_full_ancestry_description(True),
-                    end_desc,
-                ),
-            )
-            for group in teardown_groups:
-                if group in case._helper._level_stack:
-                    start_time = time()
-                    try:
-                        group._teardown_group()
-                    except:
-                        # handle error during group setup
-                        excinfo = ExceptionInfo()
-                        stop_time = time()
-                        nodeid = item.nodeid.split("::")[0] + "::"
-                        nodeid += group._inline_description
-                        location = group._last_location
-                        keywords = {}
-                        outcome = "failed"
-                        longrepr = excinfo.getrepr()
-                        when = "teardown"
-                        sections = []
-                        duration = stop_time - start_time
-                        context_lines = [
-                            "Context:",
-                            "",
-                        ]
-                        context_lines += str(location).split("\n")
-                        context_lines[-1] = ">" + context_lines[-1][1:]
-                        entry = ReprEntry(
-                            context_lines,
-                            None,
-                            None,
-                            None,
-                            "long",
-                        )
-                        if hasattr(longrepr, "chain"):
-                            reprtraceback = longrepr.chain[0][0]
-                        else:
-                            reprtraceback = longrepr.reprtraceback
-                        reprtraceback.reprentries.insert(0, entry)
-                        report = TestReport(
-                            nodeid,
-                            location,
-                            keywords,
-                            outcome,
-                            longrepr,
-                            when,
-                            sections,
-                            duration,
-                        )
-                        item.ihook.pytest_runtest_logreport(report=report)
+                    reprtraceback = longrepr.reprtraceback
+                reprtraceback.reprentries.insert(0, entry)
+                report = TestReport(
+                    nodeid,
+                    location,
+                    keywords,
+                    outcome,
+                    longrepr,
+                    when,
+                    sections,
+                    duration,
+                )
+                item.ihook.pytest_runtest_logreport(report=report)
 
 
 class ContextionalTerminalReporter(TerminalReporter):

@@ -1369,27 +1369,9 @@ class GroupTestCase(object):
 
     def _dry_run_teardown(self):
         # clean up level stack
-        case = self._case
-
-        if case._teardown_level is not None:
-            if case._teardown_level is NullGroup:
-                stop_index = None
-            else:
-                try:
-                    stop_index = case._helper._level_stack.index(
-                        case._teardown_level,
-                    )
-                except IndexError:
-                    raise IndexError(
-                        (
-                            "Cannot teardown to desired level from "
-                            "current stack."
-                        ),
-                    )
-            teardown_groups = case._helper._level_stack[:stop_index:-1]
-            for group in teardown_groups:
-                group._dry_run = True
-                group._teardown_group()
+        for group in self._case._teardown_groups:
+            group._dry_run = True
+            group._teardown_group()
 
     def runTest(self):
         __tracebackhide__ = True
@@ -1446,7 +1428,10 @@ class Group(object):
     def __str__(self):
         if self._pytest_dry_run:
             # pytest handles indentation in dry runs already.
-            return self._description
+            self._helper._level_stack.append(self)
+            desc = [self._description]
+            desc += [setup._inline_description for setup in self._setups]
+            return "\n".join(desc)
         return self._get_full_ancestry_description(indented=True)
 
     @property
@@ -1807,7 +1792,16 @@ class Case(object):
     def __str__(self):
         if self._pytest_dry_run:
             # pytest handles indentation in dry runs already.
-            return self._description
+            desc = [self._description]
+            td_groups = self._teardown_groups
+            desc += [
+                td._inline_description
+                for g in td_groups
+                for td in g._teardowns
+            ]
+            for group in td_groups:
+                self._helper._level_stack.remove(group)
+            return "\n".join(desc)
         return self._full_description
 
     @property
@@ -1822,6 +1816,30 @@ class Case(object):
             self._description,
         )
         return desc
+
+    @property
+    def _teardown_groups(self):
+        """Groups that should be torn down after this test completes."""
+        teardown_groups = []
+
+        if self._teardown_level is not None:
+            if self._teardown_level is NullGroup:
+                stop_index = None
+            else:
+                try:
+                    stop_index = self._helper._level_stack.index(
+                        self._teardown_level,
+                    )
+                except IndexError:
+                    raise IndexError(
+                        (
+                            "Cannot teardown to desired level from "
+                            "current stack."
+                        ),
+                    )
+            teardown_groups = self._helper._level_stack[:stop_index:-1]
+
+        return teardown_groups
 
     @property
     def _dry_run_description(self):
@@ -1918,35 +1936,6 @@ class Fixture(object):
             self.description,
         )
         return full_desc
-
-    @property
-    def _dry_run_description(self):
-        if self._dry_run_description_cache is None:
-            desc_list = []
-            for group in self._group._setup_ancestry:
-                if group not in self._helper._level_stack:
-                    self._helper._level_stack.append(group)
-                    desc_list.append(group._inline_description)
-            desc_list.append(self._inline_description)
-            self._dry_run_description_cache = "\n".join(desc_list)
-            # clean up level stack
-            if self._teardown_level is None:
-                return self._dry_run_description_cache
-            if self._teardown_level is NullGroup:
-                stop_index = None
-            else:
-                try:
-                    stop_index = self._helper._level_stack.index(
-                        self._teardown_level,
-                    )
-                except IndexError:
-                    raise IndexError(
-                        "Cannot teardown to desired level from current stack.",
-                    )
-            teardown_groups = self._helper._level_stack[:stop_index:-1]
-            for group in teardown_groups:
-                self._helper._level_stack.remove(group)
-        return self._dry_run_description_cache
 
     def __getattr__(self, attr):
         """Defer attribute lookups to helper."""
