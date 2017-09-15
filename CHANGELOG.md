@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.6.0] - 2017-09-15
 ### Added
 - Fixtures can now be given descriptions, too. This is great for documenting
 what your tests are doing while they're doing it.
@@ -261,7 +263,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.5.0...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.6.0...HEAD
+[1.6.0]: https://github.com/SalmonMode/contextional/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/SalmonMode/contextional/compare/1.4.3...1.5.0
 [1.4.3]: https://github.com/SalmonMode/contextional/compare/1.4.2...1.4.3
 [1.4.2]: https://github.com/SalmonMode/contextional/compare/1.4.1...1.4.2
