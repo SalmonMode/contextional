@@ -1,6 +1,13 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Fixtures can now be given descriptions, too. This is great for documenting
+what your tests are doing while they're doing it.
+- If a fixtures without a description has an error, the fixtures type and
+position will be printed out in the appropriate place to show exactly
+where/when the error happened. This is also provided in the error report.
+
 ### Fixed
 - When adding a test, if no description argument is provided, and the test
 function has no docstring, the test function's ``__name__`` will be used
