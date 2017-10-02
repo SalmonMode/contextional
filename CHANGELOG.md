@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- Resets the context on ``__exit__`` so Contexts generated through function
+calls don't screw with other groups/tests being added.
 
 ## [1.6.0] - 2017-09-15
 ### Added
