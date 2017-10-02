@@ -1158,7 +1158,14 @@ class GroupTestCase(object):
 
     def __getattr__(self, attr):
         """Defer attribute lookups to helper."""
-        return getattr(self._helper, attr)
+        try:
+            return getattr(self._helper, attr)
+        except AttributeError:
+            raise AttributeError(
+                "'TestCase' object has no attribute '{}'".format(
+                    attr,
+                ),
+            )
 
     def __setattr__(self, attr, value):
         """Defer attribute lookups to helper."""
