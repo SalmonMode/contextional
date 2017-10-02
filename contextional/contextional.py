@@ -352,6 +352,7 @@ class Context(object):
     def __exit__(self, exc_type, exc_value, exc_traceback):
         """Stop tracking the context manager and handle exiting the context."""
         self.__class__._current_manager = self._old_manager
+        self._gcm._current_context = self._parent_context
         if exc_type is None:
             return True
 
