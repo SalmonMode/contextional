@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Clarified ``AttributeError`` message.
 
 ## [1.6.1] - 2017-10-02
 ### Fixed
