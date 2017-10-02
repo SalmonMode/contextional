@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.6.1] - 2017-10-02
 ### Fixed
 - Resets the context on ``__exit__`` so Contexts generated through function
 calls don't screw with other groups/tests being added.
@@ -266,7 +268,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.6.0...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.6.1...HEAD
+[1.6.1]: https://github.com/SalmonMode/contextional/compare/1.6.0...1.6.1
 [1.6.0]: https://github.com/SalmonMode/contextional/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/SalmonMode/contextional/compare/1.4.3...1.5.0
 [1.4.3]: https://github.com/SalmonMode/contextional/compare/1.4.2...1.4.3
