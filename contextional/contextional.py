@@ -341,7 +341,13 @@ class Context(object):
     _current_manager = None
 
     def __init__(self, description, cascading_failure=True):
-        self._group = Group(description, cascading_failure=cascading_failure)
+        self.__dict__["_group"] = Group(
+            description,
+            cascading_failure=cascading_failure,
+        )
+        self.__dict__["_gcm"] = None
+        self.__dict__["_parent_context"] = None
+        self.__dict__["_old_manager"] = None
 
     def __enter__(self):
         """Track and provided the context manager when entering the context."""
@@ -362,14 +368,14 @@ class Context(object):
 
     def __setattr__(self, attr, value):
         """Defer attribute lookups to helper."""
-        if attr in self.__dict__.keys() or attr == "_group":
+        if attr in self.__dict__.keys():
             super(Context, self).__setattr__(attr, value)
         else:
             setattr(self._helper, attr, value)
 
     def __delattr__(self, attr):
         """Defer attribute lookups to helper."""
-        if attr in self.__dict__.keys() or attr == "_group":
+        if attr in self.__dict__.keys():
             super(Context, self).__delattr__(attr)
         else:
             delattr(self._helper, attr)
