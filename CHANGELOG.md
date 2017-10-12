@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.6.2] - 2017-10-12
 ### Added
 - Clarified ``AttributeError`` message.
 
@@ -273,7 +275,8 @@ to fit, since it uses standard Python syntax.
 ### Added
 - Contextional
 
-[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.6.1...HEAD
+[Unreleased]: https://github.com/SalmonMode/contextional/compare/1.6.2...HEAD
+[1.6.2]: https://github.com/SalmonMode/contextional/compare/1.6.1...1.6.2
 [1.6.1]: https://github.com/SalmonMode/contextional/compare/1.6.0...1.6.1
 [1.6.0]: https://github.com/SalmonMode/contextional/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/SalmonMode/contextional/compare/1.4.3...1.5.0
