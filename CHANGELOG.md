@@ -4,6 +4,9 @@
 ### Added
 - Clarified ``AttributeError`` message.
 
+### Fixed
+- Contexts now properly remember their parent contexts.
+
 ## [1.6.1] - 2017-10-02
 ### Fixed
 - Resets the context on ``__exit__`` so Contexts generated through function
