@@ -1021,13 +1021,21 @@ class Context(object):
                     "method only accepts Context objects",
                 )
             group_copy = deepcopy(context._group)
-            self._group._setups += group_copy._setups
-            self._group._test_setups += group_copy._test_setups
+            for setup in group_copy._setups:
+                setup._group = self._group
+                self._group._setups.append(setup)
+            for test_setup in group_copy._test_setups:
+                test_setup._group = self._group
+                self._group._test_setups.append(test_setup)
+            for teardown in group_copy._teardowns:
+                teardown._group = self._group
+                self._group._teardowns.append(teardown)
+            for test_teardown in group_copy._test_teardowns:
+                test_teardown._group = self._group
+                self._group._test_teardowns.append(test_teardown)
             for case in group_copy._cases:
                 case._group = self._group
                 self._group._cases.append(case)
-            self._group._test_teardowns += group_copy._test_teardowns
-            self._group._teardowns += group_copy._teardowns
             for child in group_copy._children:
                 child._parent = self._group
                 self._group._children.append(child)
