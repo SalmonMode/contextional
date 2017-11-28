@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.6.3] - 2017-11-28
 ### Fixed
 - Fixtures in the root group that is being combined now have their group
 properly updated.
